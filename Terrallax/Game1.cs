@@ -26,14 +26,10 @@ namespace Terrallax
         const bool FIXED_TIME_STEP = false;
         public int SCREEN_WIDTH = 1280  ;
         public int SCREEN_HEIGHT = 800;
-        const bool TESTING_MODE = false;
-        Vector3 TESTPOS_1 = new Vector3(600, 300, 700);
-        Vector3 TESTPOS_2 = new Vector3(700, 330, 0);
-        const float TEST_TIME = 10;
 
         Vector4 SKY_COLOR_TOP = new Vector4(0.3f,0.6f,0.85f,1);
         Vector4 SKY_COLOR_SUNNY_SIDE = new Vector4(1.3f, 1.0f, 0.75f, 1);
-        Vector4 SKY_COLOR_FAR_SIDE = new Vector4(0.85f, 0.95f, 1.25f, 1);
+        Vector4 SKY_COLOR_FAR_SIDE = new Vector4(0.85f, 1.2f, 2f, 1);
         Vector4 SUN_COLOR = new Vector4(0.5f, 0.25f, 0, 1);
 
         string CURRENT_TECHNIQUE = "ExpTerrain";
@@ -42,13 +38,10 @@ namespace Terrallax
         const float CAMERA_DISTANCE = 7.5f;
         const float MOUSE_SENSITIVITY = 1f;
 
-		const float CELL_WIDTH = 100;
-		const float LOD_CELL_WIDTH = 200;
-		const int NUM_CELLS = 128;
-		const int NUM_LODS = 7;
-
         const float NEAR = 0.5f;
         const float FAR = 6400f;
+
+        DepthStencilBuffer depthBuffer;
 
 
         //const int OFFSET_VERT_WIDTH = 640;
@@ -61,11 +54,11 @@ namespace Terrallax
 		Matrix MATERIAL_COLORS = new Matrix(0.13f, 0.1f , 0.07f, 0, //dirt
 											0.9f, 0.75f , 0.25f, 0, //sand
 											0.17f, 0.45f , 0.0525f, 0, //grass
-											0.18f, 0.18f, 0.11f, 0);//rock
+											0.15f, 0.15f, 0.085f, 0);//rock
 
 		Matrix MATERIAL_FUNCTIONS = new Matrix(0.4f , 0.2f,  0.03f, 1, //dirt
 											   0.5f , 0.1f, 0.025f, 0.5f, //sand
-											   0    , 0   , 1.75f   , -0.7f, //grass
+											   0    , 0   , 1.75f   , -0.6f, //grass
 											   0.6f , 1f   , 0.075f , -3f);//rock
         
 		Vector4 SCALING = new Vector4(1,    //dirt 
@@ -73,15 +66,17 @@ namespace Terrallax
                                       0.9f, //grass
                                       4.5f);   //rock
 
-		Vector4 SPECULAR_INTENSITY = new Vector4(0.1f, 0.2f, 0.2f, 1f);
+		Vector4 SPECULAR_INTENSITY = new Vector4(0.15f, 0.2f, 0.2f, 1f);
 
-		Vector4 SPECULAR_POWER = new Vector4(60, 40, 10, 60);
+		Vector4 SPECULAR_POWER = new Vector4(20, 40, 10, 60);
 
 		int fpsIndex = 0;
 		float[] fps = new float[16];
 
+        Terrain terrain;
+
 		//camera properties
-        Vector3 camerapos;
+        public Vector3 camerapos;
         Vector3 up;
         float cameraPitch;
         float cameraYaw;
@@ -93,8 +88,6 @@ namespace Terrallax
         float avgFps = 0;
         float minFps = 1000;
         float maxFps = 0;
-
-        bool testComplete = false;
 
 		Random r;
 
@@ -108,21 +101,16 @@ namespace Terrallax
 		SpriteBatch spriteBatch;
 
 		VertexDeclaration terrainVertexDeclaration;
+        VertexDeclaration flatVertexDeclaration;
 		VertexDeclaration skyVertexDeclaration;
         VertexDeclaration sunVertexDeclaration;
 
-		VertexBuffer vBuffer;
-		IndexBuffer iBuffer;
         VertexBuffer vBufferOffset;
         IndexBuffer iBufferOffset;
-		List<VertexPosition2D> LODGrid;
         List<VertexPosition2D> offsetVertices;
         VertexPosition2D[] FullScreenQuad;
         VertexPositionColor[] WaterVertices;
-		List<int> LODIndices;
         List<int> offsetIndices;
-		int currentIndex = 0;
-		Dictionary<Vector2, int> LODPoints;
 
 		string displayText;
 		SpriteFont font;
@@ -136,8 +124,6 @@ namespace Terrallax
 		Texture2D permTexture2d;
 		Texture2D permGradTexture;
 		Texture2D gradTexture4d;
-        Texture2D testParallaxTexture;
-        Texture2D testParallaxNormals;
 
 		Texture2D perlinNoiseTexture;
 		Texture2D uniformNoiseTexture;
@@ -319,6 +305,7 @@ namespace Terrallax
 			Content.RootDirectory = "Content";
 			this.IsFixedTimeStep = FIXED_TIME_STEP;
             graphics.SynchronizeWithVerticalRetrace = V_SYNC;
+            graphics.PreferMultiSampling = true;
             instance = this;
 		}
 
@@ -336,6 +323,7 @@ namespace Terrallax
 			this.graphics.PreferredBackBufferWidth = SCREEN_WIDTH;
 			this.graphics.PreferredBackBufferHeight = SCREEN_HEIGHT;
 			this.graphics.IsFullScreen = FULL_SCREEN;
+            GraphicsDevice.PresentationParameters.MultiSampleType = MultiSampleType.FourSamples;
 			this.graphics.ApplyChanges();
 			this.spriteBatch = new SpriteBatch(GraphicsDevice);
 
@@ -343,9 +331,6 @@ namespace Terrallax
 			
 			Mouse.SetPosition(GraphicsDevice.PresentationParameters.BackBufferWidth / 2,
 							  GraphicsDevice.PresentationParameters.BackBufferHeight / 2);
-			LODGrid = new List<VertexPosition2D>();
-			LODIndices = new List<int>();
-            LODPoints = new Dictionary<Vector2, int>();
 
 			r = new Random();
 
@@ -369,10 +354,7 @@ namespace Terrallax
 			perlinNoiseTexture = Content.Load<Texture2D>("perlinnoise");
 			uniformNoiseTexture = Content.Load<Texture2D>("uniformnoise");
 			materialMappingTexture = Content.Load<Texture2D>("materialmapping");
-            testParallaxTexture = Content.Load<Texture2D>("testtexture");
-            testParallaxNormals = Content.Load<Texture2D>("testtexturenormal");
 
-			generateLODGrid(NUM_LODS, NUM_CELLS, CELL_WIDTH);
             generateOffsetVertices();
             generateFullScreenQuad();
             GenerateTextures();
@@ -380,17 +362,14 @@ namespace Terrallax
             sunVertices = Skybox.createSun(0.7f, LIGHT_DIRECTION);
             skyVertices = Skybox.createSkybox();
 
-			vBuffer = new VertexBuffer(GraphicsDevice, LODGrid.Count * VertexPosition2D.SizeInBytes, BufferUsage.WriteOnly);
-            vBuffer.SetData(LODGrid.ToArray());
-			iBuffer = new IndexBuffer(GraphicsDevice, sizeof(int) * LODIndices.Count, BufferUsage.WriteOnly, IndexElementSize.ThirtyTwoBits);
-            iBuffer.SetData(LODIndices.ToArray());
             vBufferOffset = new VertexBuffer(GraphicsDevice, offsetVertices.Count * VertexPosition2D.SizeInBytes, BufferUsage.WriteOnly);
             vBufferOffset.SetData(offsetVertices.ToArray());
             iBufferOffset = new IndexBuffer(GraphicsDevice, sizeof(int) * offsetIndices.Count, BufferUsage.WriteOnly, IndexElementSize.ThirtyTwoBits);
             iBufferOffset.SetData(offsetIndices.ToArray());
 
 			skyVertexDeclaration = new VertexDeclaration(GraphicsDevice, VertexPositionColor.VertexElements);
-			terrainVertexDeclaration = new VertexDeclaration(GraphicsDevice, VertexPosition2D.VertexElements);
+			terrainVertexDeclaration = new VertexDeclaration(GraphicsDevice, VertexPosNormalTanBinormal.VertexElements);
+            flatVertexDeclaration = new VertexDeclaration(GraphicsDevice, VertexPosition2D.VertexElements);
             sunVertexDeclaration = new VertexDeclaration(GraphicsDevice, VertexPositionTexture.VertexElements);
 
 			terrainShader.Parameters["LightDir"].SetValue(LIGHT_DIRECTION);
@@ -441,7 +420,14 @@ namespace Terrallax
             offsetTarget = new RenderTarget2D(GraphicsDevice,
                                          GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
-                                         1, SurfaceFormat.Bgr32);
+                                         1, SurfaceFormat.Color);
+            depthBuffer = new DepthStencilBuffer(GraphicsDevice,
+                                        GraphicsDevice.PresentationParameters.BackBufferWidth,
+                                         GraphicsDevice.PresentationParameters.BackBufferHeight,
+                                         DepthFormat.Depth24Stencil8);
+
+
+            terrain = new Terrain();
 		}
 
 		/// <summary>
@@ -475,14 +461,11 @@ namespace Terrallax
                 fps[fpsIndex] = deltaT;
                 float currentFps = 1 / (fps.Sum() / fps.Count());
 
-                if (!testComplete)
-                {
                     minFps = (float)Math.Min(minFps, currentFps);
                     if (totalT > 1)
                     {
                         maxFps = (float)Math.Max(maxFps, currentFps);
                     }
-                }
 
                 displayFps = (int)Math.Round(currentFps);
                 displayText += "FPS: " + displayFps + "\n";
@@ -502,17 +485,14 @@ namespace Terrallax
 
 
             totalNumFrames += 1;
-            if (!testComplete)
-            {
                 avgFps = totalNumFrames / totalT;
-            }
             totalT += deltaT;
 
             displayText += "Average FPS: " + (int)Math.Round(avgFps) + "\n";
             displayText += "Minimum FPS: " + (int)Math.Round(minFps) + "\n";
             displayText += "Maximum FPS: " + (int)Math.Round(maxFps) + "\n";
 
-
+            terrain.update();
 			updateCamera();
 			base.Update(gameTime);
 		}
@@ -525,13 +505,15 @@ namespace Terrallax
 		{
             GraphicsDevice.SetRenderTarget(0, sceneTarget);
             GraphicsDevice.SetRenderTarget(1, offsetTarget);
+            DepthStencilBuffer old = GraphicsDevice.DepthStencilBuffer;
+            GraphicsDevice.DepthStencilBuffer = depthBuffer;
 
             GraphicsDevice.RenderState.AlphaBlendEnable = false;
             GraphicsDevice.RenderState.CullMode = CullMode.None;
             GraphicsDevice.RenderState.DepthBufferEnable = false;
             GraphicsDevice.RenderState.AlphaTestEnable = false;
-
-            GraphicsDevice.VertexDeclaration = terrainVertexDeclaration;
+            GraphicsDevice.Clear(Color.White);
+            GraphicsDevice.VertexDeclaration = flatVertexDeclaration;
             clearShader.Begin();
             clearShader.CurrentTechnique.Passes[0].Begin();
             GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, FullScreenQuad, 0, 2);
@@ -551,34 +533,31 @@ namespace Terrallax
             skyShader.CurrentTechnique.Passes[0].End();
             skyShader.End();
 
-            GraphicsDevice.RenderState.AlphaBlendEnable = true;
-            GraphicsDevice.RenderState.AlphaTestEnable = true;
-            GraphicsDevice.RenderState.SourceBlend = Blend.One;
-            GraphicsDevice.RenderState.DestinationBlend = Blend.One;
-
             GraphicsDevice.RenderState.AlphaBlendEnable = false;
             GraphicsDevice.RenderState.AlphaTestEnable = false;
 			GraphicsDevice.VertexDeclaration = terrainVertexDeclaration;
 			GraphicsDevice.RenderState.DepthBufferEnable = true;
-			GraphicsDevice.Indices = iBuffer;
-			GraphicsDevice.Vertices[0].SetSource(vBuffer, 0, VertexPosition2D.SizeInBytes);
-			GraphicsDevice.RenderState.CullMode = CullMode.CullClockwiseFace;
+			GraphicsDevice.Indices = terrain.iBuffer;
+			GraphicsDevice.Vertices[0].SetSource(terrain.vBuffer, 0, VertexPosNormalTanBinormal.SizeInBytes);
+            GraphicsDevice.RenderState.CullMode = CullMode.CullClockwiseFace;
+            GraphicsDevice.SamplerStates[1].MaxAnisotropy = 4;
 			//GraphicsDevice.RenderState.FillMode = FillMode.WireFrame;
 
 			// Set the WVP matrices in the shader
-			terrainShader.Parameters["World"].SetValue(world);
+			terrainShader.Parameters["World"].SetValue(terrain.world);
 			terrainShader.Parameters["View"].SetValue(view);
 			terrainShader.Parameters["Projection"].SetValue(projection);
 			terrainShader.Parameters["CameraPos"].SetValue(camerapos);
 			terrainShader.CommitChanges();
-
+            
 			terrainShader.Begin();
 			terrainShader.CurrentTechnique.Passes[0].Begin();
-			GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, LODGrid.Count, 0, LODIndices.Count / 3);
+            terrain.drawPrimitives();
 			terrainShader.CurrentTechnique.Passes[0].End();
 			terrainShader.End();
 
             GraphicsDevice.VertexDeclaration = skyVertexDeclaration;
+            this.graphics.GraphicsDevice.SamplerStates[0].MaxAnisotropy = 4;
 
             waterShader.Parameters["World"].SetValue(world);
             waterShader.Parameters["View"].SetValue(view);
@@ -589,14 +568,22 @@ namespace Terrallax
 
             GraphicsDevice.RenderState.AlphaBlendEnable = true;
             GraphicsDevice.RenderState.AlphaTestEnable = true;
-            GraphicsDevice.RenderState.SourceBlend = Blend.SourceAlpha;
-            GraphicsDevice.RenderState.DestinationBlend = Blend.InverseSourceAlpha;
+            GraphicsDevice.RenderState.SourceBlend = Blend.InverseSourceAlpha;
+            GraphicsDevice.RenderState.DestinationBlend = Blend.SourceAlpha;
             GraphicsDevice.RenderState.CullMode = CullMode.None;
 
             waterShader.Begin();
             waterShader.CurrentTechnique.Passes[0].Begin();
             GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, WaterVertices, 0, 2);
             waterShader.CurrentTechnique.Passes[0].End();
+
+            GraphicsDevice.RenderState.SourceBlend = Blend.One;
+            GraphicsDevice.RenderState.DestinationBlend = Blend.One;
+
+            waterShader.CurrentTechnique.Passes[1].Begin();
+            GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, WaterVertices, 0, 2);
+            waterShader.CurrentTechnique.Passes[1].End();
+
             waterShader.End();
 
             GraphicsDevice.RenderState.AlphaBlendEnable = false;
@@ -605,13 +592,10 @@ namespace Terrallax
 
 			GraphicsDevice.RenderState.FillMode = FillMode.Solid;
 
-			spriteBatch.Begin(SpriteBlendMode.AlphaBlend, SpriteSortMode.Immediate, SaveStateMode.SaveState);
-
-			spriteBatch.DrawString(font, displayText, new Vector2(5, 5),Color.Black);
-			spriteBatch.End();
 
             GraphicsDevice.SetRenderTarget(0, null);
             GraphicsDevice.SetRenderTarget(1, null);
+            GraphicsDevice.DepthStencilBuffer = old;
 
             Texture2D sceneTex = sceneTarget.GetTexture();
             Texture2D offsetTex = offsetTarget.GetTexture();
@@ -633,33 +617,18 @@ namespace Terrallax
             offsetShader.CurrentTechnique.Passes[0].End();
             offsetShader.End();
 
+            spriteBatch.Begin(SpriteBlendMode.AlphaBlend, SpriteSortMode.Immediate, SaveStateMode.SaveState);
+
+            spriteBatch.DrawString(font, displayText, new Vector2(5, 5), Color.Black);
+            spriteBatch.End();
+
 			base.Draw(gameTime);
 		}
 
-		int getIndex(Vector2 point)
-		{
-			if (LODPoints.ContainsKey(point))
-			{
-				return (int)LODPoints[point];
-			}
-			else{
-			
-				LODGrid.Add(new VertexPosition2D(new Vector2(point.X, point.Y)));
-				LODPoints.Add(point, currentIndex);
-				return currentIndex++;
-			}
-		}
 
 		private void initializeCamera()
 		{
-            if (TESTING_MODE)
-            {
-                this.camerapos = TESTPOS_1;
-            }
-            else
-            {
-                this.camerapos = new Vector3(0, 620, 0);
-            }
+                this.camerapos = new Vector3(56262, 620, 4262);
 			this.cameraPitch = 0;
 			this.cameraYaw = -(float)Math.PI / 2;
 			this.up = Vector3.Up;
@@ -676,8 +645,7 @@ namespace Terrallax
 
 		private void updateCamera()
 		{
-            if (!TESTING_MODE)
-            {
+            
                 MouseState mouseState = Mouse.GetState();
                 if (IsActive)
                 {
@@ -688,9 +656,9 @@ namespace Terrallax
                     cameraYaw = (float)((cameraYaw - (dx * MOUSE_SENSITIVITY) / 360) % (2 * Math.PI));
                     cameraPitch = (float)Math.Min(Math.PI / 2.05, Math.Max(-Math.PI / 2.05, cameraPitch + (dy * MOUSE_SENSITIVITY) / 360));
                 }
-                world = Matrix.CreateTranslation((float)Math.Round(camerapos.X / LOD_CELL_WIDTH) * LOD_CELL_WIDTH,
+                world = Matrix.CreateTranslation((float)Math.Round(camerapos.X / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH,
                                                   0,
-                                                 (float)Math.Round(camerapos.Z / LOD_CELL_WIDTH) * LOD_CELL_WIDTH);
+                                                 (float)Math.Round(camerapos.Z / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH);
 
                 Matrix rotationMatrix = Matrix.CreateFromYawPitchRoll(cameraYaw, cameraPitch, 0);
                 Vector3 deltaPos = Vector3.Zero;
@@ -738,99 +706,7 @@ namespace Terrallax
 
                 view = Matrix.CreateLookAt(camerapos, camerapos + lookatPos, up);
                 skyView = Matrix.CreateLookAt(Vector3.Zero, lookatPos, up);
-            }
-            else
-            {
-                if (totalT < TEST_TIME)
-                {
-                    world = Matrix.CreateTranslation((float)Math.Round(camerapos.X / LOD_CELL_WIDTH) * LOD_CELL_WIDTH,
-                                                         0,
-                                                        (float)Math.Round(camerapos.Z / LOD_CELL_WIDTH) * LOD_CELL_WIDTH);
-
-                    Vector3 deltaPos = (TESTPOS_2 - TESTPOS_1) * deltaT / TEST_TIME;
-                    camerapos += deltaPos;
-                    view = Matrix.CreateLookAt(camerapos, camerapos + deltaPos, up);
-                    skyView = Matrix.CreateLookAt(Vector3.Zero, deltaPos, up);
-                }
-                else
-                {
-                    testComplete = true;
-                }
-            }
         }
-
-		void addPolygon(float x1, float y1, float x2, float y2, float x3, float y3, float offset, float scale)
-		{
-			int index1, index2, index3;
-			Vector2 point1 = new Vector2(x1 * scale + offset, y1 * scale + offset);
-			Vector2 point2 = new Vector2(x2 * scale + offset, y2 * scale + offset);
-			Vector2 point3 = new Vector2(x3 * scale + offset, y3 * scale + offset);
-
-			index1 = getIndex(point1);
-			index2 = getIndex(point2);
-			index3 = getIndex(point3);
-
-			LODIndices.Add(index1);
-			LODIndices.Add(index2);
-			LODIndices.Add(index3);
-		}
-
-		void generateLODGrid(int LODLevels, int width, float scale)
-		{
-
-			float offset = -scale*width/2;
-			for (int LODLevel = 0; LODLevel < LODLevels; LODLevel++)
-			{
-				for (int x = 0; x < width; x++)
-				{
-					for (int y = 0; y < width; y++)
-					{
-						int edge1 = (width / 4) - 1;
-						int edge2 = (width / 4) * 3;
-
-						if (LODLevel == LODLevels - 1 ||  
-							Math.Min(x,y) < edge1 || Math.Max(x,y) > edge2 ||
-							((x == edge1 || x == edge2)&&(y == edge1 || y == edge2)))
-						{
-							//draw a normal square
-							addPolygon(x, y  , x+1, y, x  , y+1, offset, scale);
-							addPolygon(x, y+1, x+1, y, x+1, y+1, offset, scale);
-						}
-						else if (x == edge1)
-						{
-							//draw a left edge square
-							addPolygon(x  , y     , x+1, y     , x, y+1, offset, scale);
-							addPolygon(x+1, y     , x+1, y+0.5f, x, y+1, offset, scale);
-							addPolygon(x+1, y+0.5f, x+1, y+1   , x, y+1   , offset, scale);
-						}
-						else if (x == edge2)
-						{
-							//draw a right edge square
-							addPolygon(x  , y     , x+1, y  , x  , y+0.5f, offset, scale);
-							addPolygon(x  , y+0.5f, x+1, y  , x  , y+1   , offset, scale);
-							addPolygon(x  , y+1   , x+1  , y, x+1, y+1   , offset, scale);
-						}
-						else if (y == edge1)
-						{
-							//draw a top edge square
-							addPolygon(x  , y, x+1, y, x     , y+1, offset, scale);
-							addPolygon(x+1  , y, x+0.5f   , y+1  , x, y+1, offset, scale);
-							addPolygon(x+1, y, x+1   , y+1, x+0.5f, y+1, offset, scale);
-						}
-						else if (y == edge2)
-						{
-							//draw a bottom edge square
-							addPolygon(x, y, x + 0.5f, y, x, y + 1, offset, scale);
-							addPolygon(x + 0.5f, y, x + 1, y, x, y + 1, offset, scale);
-							addPolygon(x + 1, y, x + 1, y + 1, x, y + 1, offset, scale);
-						}
-					}
-				}
-				offset += (scale*width) / 4;
-				scale /= 2;
-			}
-			LODIndices.Reverse(); //we want to draw the close up LODs first to decrease overdraw
-		}
 
         void generateOffsetVertices()
         {
@@ -844,7 +720,7 @@ namespace Terrallax
             {
                 for (int x = 0; x < OFFSET_VERT_WIDTH; x++)
                 {
-                    vertices.Add(new VertexPosition2D(new Vector2((x * 2.0f) / OFFSET_VERT_WIDTH - 1, (y * 2.0f) / OFFSET_VERT_HEIGHT - 1)));
+                    vertices.Add(new VertexPosition2D(new Vector2(((x * 2.0f) / (OFFSET_VERT_WIDTH - 1)) - 1, ((y * 2.0f) / (OFFSET_VERT_HEIGHT - 1)) - 1)));
                     if (x < OFFSET_VERT_WIDTH - 1 && y < OFFSET_VERT_HEIGHT - 1)
                     {
                         indices.Add(x + y * OFFSET_VERT_WIDTH);

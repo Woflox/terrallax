@@ -18,8 +18,8 @@ sampler offsetSampler = sampler_state
     texture = <offsetTexture>;
     AddressU  = CLAMP;   
     AddressV  = CLAMP;
-    MAGFILTER = LINEAR;
-    MINFILTER = LINEAR;
+    MAGFILTER = POINT;
+    MINFILTER = POINT;
     MIPFILTER = NONE;   
 };
 
@@ -43,9 +43,9 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
     output.Position = input.Position;
     float2 texCoord = (input.Position.xy+1)/2;
     texCoord.y = 1-texCoord.y;
-    float2 offset = tex2Dlod(offsetSampler, float4(texCoord.x, texCoord.y,0,0)).rg;
-    output.Position.z = (output.Position.y + 1)/3;
-	output.Position.xy += offset-0.5;
+    float4 offset = tex2Dlod(offsetSampler, float4(texCoord.x, texCoord.y,0,0));
+    output.Position.z = offset.b+offset.a/255;
+	output.Position.xy += offset.rg-0.5;
     output.Position.w = 1;
     output.TexCoord = texCoord;
     

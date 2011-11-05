@@ -35,9 +35,9 @@ sampler perlinSampler = sampler_state
     texture = <PerlinNoiseTexture>;
     AddressU  = Wrap;        
     AddressV  = Wrap;
-    MAGFILTER = LINEAR;
-    MINFILTER = LINEAR;
-    MIPFILTER = NONE;   
+	MAGFILTER = LINEAR;
+    MINFILTER = ANISOTROPIC;
+    MIPFILTER = LINEAR;   
 };
 
 sampler uniformSampler = sampler_state
@@ -46,7 +46,7 @@ sampler uniformSampler = sampler_state
 	AddressU = Wrap;
 	AddressV = Wrap;
 	MAGFILTER = LINEAR;
-    MINFILTER = LINEAR;
+    MINFILTER = ANISOTROPIC;
     MIPFILTER = LINEAR;   
 };
 
@@ -62,7 +62,10 @@ sampler materialMappingSampler = sampler_state
 
 struct VertexShaderInput
 {
-    float2 Position : POSITION0;
+    float3 Position : POSITION0;
+    float3 Normal : NORMAL0;
+    float3 Tangent : TANGENT0;
+    float3 Binormal : BINORMAL0;
 };
 
 struct VertexShaderOutput
@@ -90,7 +93,7 @@ VertexShaderOutput TerrainVS(VertexShaderInput input)
     VertexShaderOutput output;
     
     // multiply by the WVP matrices
-    float4 worldPosition = float4(input.Position.x, 0, input.Position.y, 1);
+    float4 worldPosition = float4(input.Position.x, 0, input.Position.z, 1);
     worldPosition = mul(worldPosition, World);
     
     float4 testPos = worldPosition;
@@ -106,20 +109,14 @@ VertexShaderOutput TerrainVS(VertexShaderInput input)
 	float4 color = float4(0,0,0,0);
     if ((testCamPosA.x > -1.1 && testCamPosA.x < 1.1 && testCamPosA.z > 0) ||(testCamPosB.x > -1.1 && testCamPosB.x < 1.1 && testCamPosB.z > 0) )
     {
-		// calc the height displacement using a multifractal
-		float heightValue = mf(worldPosition.xz/1200, 8)*2;
-	     
-		//calculate the binormal and tangent by getting the height right next to the point for x and z
-		float3 binormal = normalize(float3(0.00015, mf(worldPosition.xz/1200+float2(0.0001,0), 8) - heightValue/2, 0));
-		float3 tangent = normalize(float3(0, mf(worldPosition.xz/1200+float2(0,0.0001), 8) - heightValue/2, 0.00015));
-		float3 normal = normalize(cross(tangent, binormal));
-		float3x3 tsm = {tangent, binormal, normal};
-
-		// add the height displacement to the vertex position
-		worldPosition.y = heightValue*400;
 	    
-		//worldPosition += float4(binormal,0) * test *10;
-	   
+	    float heightValue = input.Position.y;
+		float3 binormal = input.Binormal;
+		float3 tangent = input.Tangent;
+		float3 normal = input.Normal;
+		float3x3 tsm = {tangent, binormal, normal};
+		
+		worldPosition.y = heightValue;
 	    
 		output.Info = float4(normal.x, normal.z, worldPosition.y,0);
 
@@ -133,7 +130,9 @@ VertexShaderOutput TerrainVS(VertexShaderInput input)
 		output.Position = mul(viewPosition, Projection);
 		output.TexCoord = worldPosition.xz;
 		
-		float4 projectedNormal = mul(mul (worldPosition + float4(normal.x, normal.y, normal.z, 0), View), Projection);
+		output.Info.w = output.Position.z/output.Position.w;
+		
+		float4 projectedNormal = mul(mul (worldPosition + float4(normal.x, normal.y, normal.z, 0)*5, View), Projection);
 		
 		output.MaxOffset = (projectedNormal.xy/projectedNormal.w) - (output.Position.xy/output.Position.w);
 		
@@ -164,7 +163,6 @@ VertexShaderOutput TerrainVS(VertexShaderInput input)
 		float howHigh = saturate(dot(cameraDir, float3(0,1,0)));
 		howHigh = 1-((1-howHigh)*(1-howHigh));
 		float sunIntensity = 0.1/(pow(howSunny,0.325));
-
 		
 		output.FogColor = lerp(SkyColorSunnySide, SkyColorFarSide, howSunny);
 		output.FogColor = lerp(output.FogColor, SkyColorTop, howHigh);
@@ -190,12 +188,12 @@ VertexShaderOutput TerrainVS(VertexShaderInput input)
 
 float calculateHeightForMaterialLOD(float2 coordinates, float4 materialMapping, float material, float mipLevel)
 {
-	float4 bigValue = tex2Dlod(perlinSampler, float4(coordinates*0.004,0,0));
+	float4 bigValue = tex2D(perlinSampler, coordinates*0.004);
 	bigValue.rgb -= 0.5;
 	
 	float4 values = float4(bigValue.a,
-						   tex2Dlod(perlinSampler, float4(coordinates*0.016,0,0)).a,
-						   tex2Dlod(uniformSampler, float4(coordinates*0.032,0,mipLevel)).a,
+						   tex2D(perlinSampler, coordinates*0.016).a,
+						   tex2D(uniformSampler, coordinates*0.016).a,
 						   1);
 	float rawHeight = mul( MaterialFunctions[material], values);
 	
@@ -215,7 +213,7 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     //these are the uv multipliers for the three texture samples
     const float bigMultiplier = 0.004;
     const float mediumMultiplier = 0.016;
-    const float smallMultiplier = 0.032;
+    const float smallMultiplier = 0.016;
 	
     //get the material mapping based on the information passed from the vertex shader. (Info.xy represents the x and z of the normal and Info.z is the terrain height)
     float4 materialMapping = tex2D(materialMappingSampler, (float2(length(input.Info.xy),1-(input.Info.z-WaterLevel)*0.0025)));
@@ -228,12 +226,14 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     MaterialFunctions[3][1] *= 1 - max(0,materialMapping[3] * 2 - 1);
 	
     //make dirt bumpier on inclines
-    MaterialFunctions[0].xyz *= length(input.Info.xy)+0.5;
-
+    float incline =  length(input.Info.xy);
+    MaterialFunctions[0].xyz *= incline*1.75+0.5;
+	MaterialFunctions[0].xyz -= incline*0.1;
     float2 offsetCoord = input.TexCoord.xy*smallMultiplier;
     
+    
     //get the mip-map level based only on the distance from the camera
-    float mipLevel = log(length(input.TanCamPos - input.TanPos)*0.25*detail);
+    float mipLevel = log2(length(input.TanCamPos - input.TanPos)*0.035*detail);
 	
 	//variables needed within the ray-marching loop
     float4 bigValue;
@@ -242,11 +242,11 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     float currentMaterial;
   	
         //sample the three textures
-        bigValue = tex2Dlod(perlinSampler, float4(offsetCoord*bigMultiplier/smallMultiplier,0,0));
+        bigValue = tex2D(perlinSampler, offsetCoord*bigMultiplier/smallMultiplier);
         bigValue.r -= 0.5;
         values = float4(bigValue.a, 
-                               tex2Dlod(perlinSampler, float4(offsetCoord*mediumMultiplier/smallMultiplier,0,0)).a, 
-                               tex2Dlod(uniformSampler, float4(offsetCoord,0,mipLevel)).a,
+                               tex2D(perlinSampler, offsetCoord*mediumMultiplier/smallMultiplier).a, 
+                               tex2D(uniformSampler, offsetCoord).a,
                                1);
 		
         //get the heights for each material (without taking the material mapping into account)
@@ -272,9 +272,11 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
             }
         }
 		
-    offset.rg = (input.MaxOffset * (currentHeight - 1.25)*10)+0.5;
-    offset.b = 0;
-    offset.a = 1;
+    offset.rg = (input.MaxOffset * (currentHeight - 1.325)*2)+0.5;
+    
+    //pack the depth into b/a
+    offset.b = floor(input.Info.w*255)/255;
+    offset.a = (input.Info.w - offset.b)*255;
     
     //get neighbouring heights to calculate the normal
     float height2 = calculateHeightForMaterialLOD(offsetCoord/smallMultiplier+float2(0.05, 0), materialMapping, currentMaterial, mipLevel);
@@ -299,14 +301,13 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
         //make flat parts grass-coloured when in a grassy area
         color = lerp(color,MaterialColors[2],materialMapping[2]*(1-min(1.5,length(normal.xy)*4))*0.5);
         
-         //darken the ground near rocks
-        //color *= 0.75+ 2 * min(0.125,currentHeight-(rawHeights[3]+materialMapping[3]*Scaling[3]));
+        color *= 1.125 - (input.Info.x*input.Info.x+input.Info.y*input.Info.y)*0.625;
 
     }
     if (currentMaterial == 3)
     {
         //make the edges of rocks dark
-        color *= clamp((currentHeight+0.95-rawHeights[0]),0.95,1);
+        color *= clamp((currentHeight+0.9-rawHeights[0]),0.9,1);
         color *= values[2]*0.25 + 0.75;
         //make the specular intensity vary for rocks (based on the fine noise)
         SpecularPower[3] *= values[2];
@@ -315,12 +316,6 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
 	
     //add noise to the colour and make higher parts lighter
     color *= 0.5 + currentHeight*0.5*(values[2]*0.2+0.9);
-	
-    if(input.Info.z <= WaterLevel+1.2-currentHeight)
-    {
-        //make underwater terrain tinted blue
-        //color = float4(0.8,0.8,0.4,0);
-    }
 	
     //do lighting calculations
     float3 directionToCamera = normalize(input.TanCamPos - input.TanPos);

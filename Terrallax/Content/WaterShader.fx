@@ -44,6 +44,12 @@ struct PixelShaderOutput
 	float4 Color1 : COLOR1;
 };
 
+struct DepthShaderOutput
+{
+	float4 Position : POSITION0;
+	float4 pos : TEXCOORD0;
+};
+
 VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
 {
     VertexShaderOutput output;
@@ -53,6 +59,17 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
     output.Position = mul(viewPosition, Projection);
 	output.TexCoord = worldPosition;
 
+    return output;
+}
+
+DepthShaderOutput DepthVertexShaderFunction(VertexShaderOutput input)
+{
+	DepthShaderOutput output;
+	float4 worldPosition = mul(input.Position, World);
+    float4 viewPosition = mul(worldPosition, View);
+    output.Position = mul(viewPosition, Projection);
+    output.pos = output.Position;
+    
     return output;
 }
 
@@ -123,11 +140,27 @@ PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
 		float waterDistance = length(CameraPos - input.TexCoord);
 		color.rgba = lerp ( color, waterColor, 1-pow(2.71828183, -(0.0075*waterDistance)));
 	}
-	
 	color.rgb = sqrt(color.rgb);
+	color.a = 1 - color.a;
 	Output.Color0 = color;
-	Output.Color1 = float4(0.5, 0.5 + height*4/length(CameraPos - input.TexCoord), 0.5, 1);
+	Output.Color1.rg = float2(0.5, 0.5 + height*4/length(CameraPos - input.TexCoord.xyz));
+	Output.Color1.b = 0;//floor(input.TexCoord.w*255)/255;
+	Output.Color1.a = 0;//floor((input.TexCoord.w*255-Output.Color1.b)*255)/255;
+	
     return Output;
+}
+
+PixelShaderOutput DepthShaderFunction(DepthShaderOutput input)
+{
+	PixelShaderOutput Output;
+	
+	Output.Color0 = float4(0,0,0,1);
+	
+	float depth = input.pos.z / input.pos.w;
+	Output.Color1.rg = float2(0,0);
+	Output.Color1.b = floor(depth*255)/255;
+	Output.Color1.a = (depth-Output.Color1.b)*255;
+	return Output;
 }
 
 technique Technique1
@@ -138,5 +171,11 @@ technique Technique1
 
         VertexShader = compile vs_3_0 VertexShaderFunction();
         PixelShader = compile ps_3_0 PixelShaderFunction();
+    }
+    
+    pass Pass2
+    {
+		VertexShader = compile vs_3_0 DepthVertexShaderFunction();
+		PixelShader = compile ps_3_0 DepthShaderFunction();
     }
 }

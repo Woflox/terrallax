@@ -59,6 +59,7 @@
       <Name>perlinnoise</Name>
       <Importer>TextureImporter</Importer>
       <Processor>TextureProcessor</Processor>
+      <ProcessorParameters_ColorKeyEnabled>False</ProcessorParameters_ColorKeyEnabled>
     </Compile>
     <Compile Include="WaterShader.fx">
       <Name>WaterShader</Name>

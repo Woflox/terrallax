@@ -38,7 +38,7 @@ PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
     PixelShaderOutput output;
     
 	output.color0 = float4(1,1,1,1);
-	output.color1 = float4(0.5,0.5,0.5,1);
+	output.color1 = float4(0.5,0.5,1,1);
 	
 	return output;
 }
