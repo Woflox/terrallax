@@ -49,14 +49,14 @@ namespace Terrallax
 
 		const float WATER_LEVEL = 440;
 
-		Vector3 LIGHT_DIRECTION = Vector3.Normalize(new Vector3(1,-0.5f, 0));
+		Vector3 LIGHT_DIRECTION = Vector3.Normalize(new Vector3(1,-0.375f, 0));
 
 		Matrix MATERIAL_COLORS = new Matrix(0.13f, 0.1f , 0.07f, 0, //dirt
 											0.9f, 0.75f , 0.25f, 0, //sand
-											0.17f, 0.45f , 0.0525f, 0, //grass
+											0.2f, 0.4f , 0.0525f, 0, //grass
 											0.15f, 0.15f, 0.085f, 0);//rock
 
-		Matrix MATERIAL_FUNCTIONS = new Matrix(0.4f , 0.2f,  0.03f, 1, //dirt
+		Matrix MATERIAL_FUNCTIONS = new Matrix(0.4f , 0.2f,  0.06f, 1, //dirt
 											   0.5f , 0.1f, 0.025f, 0.5f, //sand
 											   0    , 0   , 1.75f   , -0.6f, //grass
 											   0.6f , 1f   , 0.075f , -3f);//rock

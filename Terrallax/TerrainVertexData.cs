@@ -84,13 +84,17 @@ namespace Terrallax
                 }
                 else
                 {
+                    float vScale = 400;
+                    float hScale = 2300;
+                    float offset = 300;
+
                     Vector2 p2D = new Vector2(vertices[i].Position.X + basePosition.X, vertices[i].Position.Z + basePosition.Y);
                     // calc the height displacement using a multifractal
-                    vertices[i].Position.Y = mf(p2D / 2300f, 8) * 700 + 120;
+                    vertices[i].Position.Y = mf(p2D / hScale, 8) * vScale + offset;
 
                     //calculate the binormal and tangent by getting the height right next to the point for x and z
-                    vertices[i].Binormal = Vector3.Normalize(new Vector3(0.1f, (mf((p2D + new Vector2(0.1f, 0)) / 2300f, 8) * 700 + 120) - vertices[i].Position.Y, 0));
-                    vertices[i].Tangent = Vector3.Normalize(new Vector3(0, (mf((p2D + new Vector2(0, 0.1f)) / 2300f, 8) * 700 + 120) - vertices[i].Position.Y, 0.1f));
+                    vertices[i].Binormal = Vector3.Normalize(new Vector3(0.1f, (mf((p2D + new Vector2(0.1f, 0)) / hScale, 8) * vScale + offset) - vertices[i].Position.Y, 0));
+                    vertices[i].Tangent = Vector3.Normalize(new Vector3(0, (mf((p2D + new Vector2(0, 0.1f)) / hScale, 8) * vScale + offset) - vertices[i].Position.Y, 0.1f));
                     vertices[i].Normal = Vector3.Normalize(Vector3.Cross(vertices[i].Tangent, vertices[i].Binormal));
                     numGenerated++;
                 }
