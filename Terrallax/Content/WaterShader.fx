@@ -81,7 +81,7 @@ PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
 	float4 c3 = tex2D(perlinSampler, (input.TexCoord.xz+t*20)*0.001);
 	float4 c4 = tex2D(perlinSampler, (input.TexCoord.xz-t*1)*0.009);
 	
-	float4 waterColor = float4(0.1,0.2,0.04,1);
+	float4 waterColor = float4(0.0,0.1,0.0,1);
 	
 	float4 color;
 	
@@ -102,7 +102,8 @@ PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
     float specular = pow(saturate(dot(-reflectionVector, directionToCamera)),600);
     float specular2 = pow(saturate((dot(-reflectionVectorAmbient, directionToCamera))), 1);
 	
-	float fresnel = pow(saturate(dot(normal, directionToCamera)),0.35);
+	float fresnel = pow(saturate(dot(normal, directionToCamera)),0.5);
+	fresnel = 1-((1-fresnel)*1.2);
 	if (underwater < 0)
 	{
 		 fresnel = saturate(dot(normal, directionToCamera));
@@ -117,10 +118,10 @@ PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
 	color = lerp(SkyColorSunnySide, SkyColorFarSide, howSunny);
 	color = saturate(lerp(color, SkyColorTop, howHigh));
 	color += SunColor*sunIntensity;
-	color.r *= 0.6;
+	color.r *= 0.7;
 	
 	//color = lerp(float4(0.7,0.9,1,1), float4(0.3,0.7,1,1), specular2);
-	color.a = lerp(1, 0.05, fresnel);
+	color.a = lerp(1, 0.01, fresnel);
 	color +=  float4(1.75,1.5,1.25,1.5) * specular;
 	
 	//fog
@@ -138,9 +139,8 @@ PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
 	{
 		//waterfog
 		float waterDistance = length(CameraPos - input.TexCoord);
-		color.rgba = lerp ( color, waterColor, 1-pow(2.71828183, -(0.0075*waterDistance)));
+		color.rgba = lerp ( color, waterColor, 1-pow(2.71828183, -(0.0175*waterDistance)));
 	}
-	color.rgb = sqrt(color.rgb);
 	color.a = 1 - color.a;
 	Output.Color0 = color;
 	Output.Color1.rg = float2(0.5, 0.5 + height*4/length(CameraPos - input.TexCoord.xyz));

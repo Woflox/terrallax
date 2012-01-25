@@ -148,7 +148,7 @@ VertexShaderOutput TerrainVS(VertexShaderInput input)
 			{
 				waterDistance = length(float2((WaterLevel-worldPosition.y), length(worldPosition.xz-CameraPos.xz)*((WaterLevel-worldPosition.y) /(CameraPos.y-worldPosition.y)))); 
 			}
-			color.r = 1-pow(2.71828183, -(0.0075*waterDistance));
+			color.r = 1-pow(2.71828183, -(0.0175*waterDistance));
 			distance -= waterDistance;
 		}
 		else
@@ -296,7 +296,7 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     else
     {
         //if we have dirt or sand, blend the colours between them based on the sand's material mapping
-        color = lerp(MaterialColors[0], MaterialColors[1], materialMapping[1]);
+        color = lerp(MaterialColors[0], MaterialColors[1], saturate(materialMapping[1] + (values[2]-0.5)*0.2f));
 	    
         //make flat parts grass-coloured when in a grassy area
         color = lerp(color,MaterialColors[2],materialMapping[2]*(1-min(1.5,length(normal.xy)*4))*0.5);
@@ -332,17 +332,15 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     }
 	
     //apply ambient, diffuse, and specular lighting
-    color *= float4(0.12,0.12,0.15,1) + diffuse*float4(1.5,1,0.7,0) + specular*SpecularIntensity[currentMaterial];
-	
+    color *= float4(0.12,0.12,0.15,1)*1.5 + diffuse*float4(1.5,1,0.7,0)*1.5 + specular*SpecularIntensity[currentMaterial]*1.5;
+	color.rgb = color.rgb * 1.4;
     if(input.Info.z <= WaterLevel)
     {
         //apply water fog
-        color = lerp(color, float4(0.1,0.2,0.04,1), input.Color.r);
+        color = lerp(color, float4(0.0,0.1,0.0,1), input.Color.r);
     }
-	
     //apply distance fog
     color = lerp(color, input.FogColor, input.Color.g);
-    color.rgb = sqrt(color.rgb);
     color.a = 1;
     output.color0 = color;
     output.color1 = offset;

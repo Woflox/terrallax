@@ -46,7 +46,6 @@ float4 PixelShaderFunction(VertexShaderOutput input) : COLOR0
 	color = lerp(SkyColorSunnySide, SkyColorFarSide, howSunny);
 	color = lerp(color, SkyColorTop, howHigh);
 	color += SunColor*sunIntensity;
-	color.rgb = sqrt(color.rgb);
 	
     return color;
 }

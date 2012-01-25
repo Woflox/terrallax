@@ -44,11 +44,11 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
     float2 texCoord = (input.Position.xy+1)/2;
     texCoord.y = 1-texCoord.y;
     float4 offset = tex2Dlod(offsetSampler, float4(texCoord.x, texCoord.y,0,0));
+    
     output.Position.z = offset.b+offset.a/255;
 	output.Position.xy += offset.rg-0.5;
     output.Position.w = 1;
     output.TexCoord = texCoord;
-    
     return output;
 }
 

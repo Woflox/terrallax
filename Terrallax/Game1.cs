@@ -29,7 +29,7 @@ namespace Terrallax
 
         Vector4 SKY_COLOR_TOP = new Vector4(0.3f,0.6f,0.85f,1);
         Vector4 SKY_COLOR_SUNNY_SIDE = new Vector4(1.3f, 1.0f, 0.75f, 1);
-        Vector4 SKY_COLOR_FAR_SIDE = new Vector4(0.85f, 1.2f, 2f, 1);
+        Vector4 SKY_COLOR_FAR_SIDE = new Vector4(0.85f, 1f, 2f, 1);
         Vector4 SUN_COLOR = new Vector4(0.5f, 0.25f, 0, 1);
 
         string CURRENT_TECHNIQUE = "ExpTerrain";
@@ -37,11 +37,12 @@ namespace Terrallax
         const float VIEWING_ANGLE = 80;
         const float CAMERA_DISTANCE = 7.5f;
         const float MOUSE_SENSITIVITY = 1f;
-
+        
         const float NEAR = 0.5f;
         const float FAR = 6400f;
 
         DepthStencilBuffer depthBuffer;
+        DepthStencilBuffer depthBufferScene;
 
 
         //const int OFFSET_VERT_WIDTH = 640;
@@ -51,8 +52,8 @@ namespace Terrallax
 
 		Vector3 LIGHT_DIRECTION = Vector3.Normalize(new Vector3(1,-0.375f, 0));
 
-		Matrix MATERIAL_COLORS = new Matrix(0.13f, 0.1f , 0.07f, 0, //dirt
-											0.9f, 0.75f , 0.25f, 0, //sand
+		Matrix MATERIAL_COLORS = new Matrix(0.13f, 0.1f , 0.05f, 0, //dirt
+											0.9f, 0.75f , 0.2f, 0, //sand
 											0.2f, 0.4f , 0.0525f, 0, //grass
 											0.15f, 0.15f, 0.085f, 0);//rock
 
@@ -108,7 +109,7 @@ namespace Terrallax
         VertexBuffer vBufferOffset;
         IndexBuffer iBufferOffset;
         List<VertexPosition2D> offsetVertices;
-        VertexPosition2D[] FullScreenQuad;
+        VertexPositionTexture[] FullScreenQuad;
         VertexPositionColor[] WaterVertices;
         List<int> offsetIndices;
 
@@ -120,6 +121,8 @@ namespace Terrallax
         Effect clearShader;
         Effect waterShader;
         Effect skyShader;
+        Effect toneMapShader;
+        Effect fullScreenTextureShader;
 		Texture2D permTexture;
 		Texture2D permTexture2d;
 		Texture2D permGradTexture;
@@ -129,8 +132,9 @@ namespace Terrallax
 		Texture2D uniformNoiseTexture;
 		Texture2D materialMappingTexture;
 
-        RenderTarget2D sceneTarget;
+        RenderTarget2D terrainTarget;
         RenderTarget2D offsetTarget;
+        RenderTarget2D sceneTarget;
 
         VertexPositionTexture[] sunVertices;
         VertexPositionTexture[] skyVertices;
@@ -305,7 +309,6 @@ namespace Terrallax
 			Content.RootDirectory = "Content";
 			this.IsFixedTimeStep = FIXED_TIME_STEP;
             graphics.SynchronizeWithVerticalRetrace = V_SYNC;
-            graphics.PreferMultiSampling = true;
             instance = this;
 		}
 
@@ -323,10 +326,9 @@ namespace Terrallax
 			this.graphics.PreferredBackBufferWidth = SCREEN_WIDTH;
 			this.graphics.PreferredBackBufferHeight = SCREEN_HEIGHT;
 			this.graphics.IsFullScreen = FULL_SCREEN;
-            GraphicsDevice.PresentationParameters.MultiSampleType = MultiSampleType.FourSamples;
 			this.graphics.ApplyChanges();
 			this.spriteBatch = new SpriteBatch(GraphicsDevice);
-
+            this.graphics.PreferMultiSampling = true;
 			initializeCamera();
 			
 			Mouse.SetPosition(GraphicsDevice.PresentationParameters.BackBufferWidth / 2,
@@ -351,6 +353,8 @@ namespace Terrallax
             clearShader = Content.Load<Effect>("FullScreenClear");
             waterShader = Content.Load<Effect>("WaterShader");
             skyShader = Content.Load<Effect>("SkyShader");
+            toneMapShader = Content.Load<Effect>("ToneMap");
+            fullScreenTextureShader = Content.Load<Effect>("FullScreenTexture");
 			perlinNoiseTexture = Content.Load<Texture2D>("perlinnoise");
 			uniformNoiseTexture = Content.Load<Texture2D>("uniformnoise");
 			materialMappingTexture = Content.Load<Texture2D>("materialmapping");
@@ -413,19 +417,26 @@ namespace Terrallax
             waterShader.Parameters["SkyColorFarSide"].SetValue(SKY_COLOR_FAR_SIDE);
             waterShader.Parameters["SunColor"].SetValue(SUN_COLOR);
 
-            sceneTarget = new RenderTarget2D(GraphicsDevice,
+            terrainTarget = new RenderTarget2D(GraphicsDevice,
                                          GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
-                                         1, SurfaceFormat.Bgr32);
+                                         1, SurfaceFormat.Color);
             offsetTarget = new RenderTarget2D(GraphicsDevice,
                                          GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
                                          1, SurfaceFormat.Color);
+            sceneTarget = new RenderTarget2D(GraphicsDevice,
+                                         GraphicsDevice.PresentationParameters.BackBufferWidth,
+                                         GraphicsDevice.PresentationParameters.BackBufferHeight,
+                                         1, SurfaceFormat.Color, MultiSampleType.FourSamples, GraphicsDevice.PresentationParameters.MultiSampleQuality );
             depthBuffer = new DepthStencilBuffer(GraphicsDevice,
                                         GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
                                          DepthFormat.Depth24Stencil8);
-
+            depthBufferScene = new DepthStencilBuffer(GraphicsDevice,
+                                        GraphicsDevice.PresentationParameters.BackBufferWidth,
+                                         GraphicsDevice.PresentationParameters.BackBufferHeight,
+                                         DepthFormat.Depth24Stencil8, MultiSampleType.FourSamples, GraphicsDevice.PresentationParameters.MultiSampleQuality);
 
             terrain = new Terrain();
 		}
@@ -503,7 +514,7 @@ namespace Terrallax
 		/// <param name="gameTime">Provides a snapshot of timing values.</param>
 		protected override void Draw(GameTime gameTime)
 		{
-            GraphicsDevice.SetRenderTarget(0, sceneTarget);
+            GraphicsDevice.SetRenderTarget(0, terrainTarget);
             GraphicsDevice.SetRenderTarget(1, offsetTarget);
             DepthStencilBuffer old = GraphicsDevice.DepthStencilBuffer;
             GraphicsDevice.DepthStencilBuffer = depthBuffer;
@@ -513,7 +524,7 @@ namespace Terrallax
             GraphicsDevice.RenderState.DepthBufferEnable = false;
             GraphicsDevice.RenderState.AlphaTestEnable = false;
             GraphicsDevice.Clear(Color.White);
-            GraphicsDevice.VertexDeclaration = flatVertexDeclaration;
+            GraphicsDevice.VertexDeclaration = sunVertexDeclaration;
             clearShader.Begin();
             clearShader.CurrentTechnique.Passes[0].Begin();
             GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, FullScreenQuad, 0, 2);
@@ -592,33 +603,53 @@ namespace Terrallax
 
 			GraphicsDevice.RenderState.FillMode = FillMode.Solid;
 
-
-            GraphicsDevice.SetRenderTarget(0, null);
+            GraphicsDevice.SetRenderTarget(0, sceneTarget);
             GraphicsDevice.SetRenderTarget(1, null);
-            GraphicsDevice.DepthStencilBuffer = old;
+            GraphicsDevice.DepthStencilBuffer = depthBufferScene;
+            GraphicsDevice.Clear(Color.White);
 
-            Texture2D sceneTex = sceneTarget.GetTexture();
+            Texture2D terrainTex = terrainTarget.GetTexture();
             Texture2D offsetTex = offsetTarget.GetTexture();
 
-            spriteBatch.Begin(SpriteBlendMode.AlphaBlend, SpriteSortMode.Immediate, SaveStateMode.SaveState);
-            spriteBatch.Draw(sceneTex, Vector2.Zero, Color.White);
-            spriteBatch.End();
 
             GraphicsDevice.Vertices[0].SetSource(vBufferOffset, 0, VertexPosition2D.SizeInBytes);
             GraphicsDevice.Indices = iBufferOffset;
 
-            offsetShader.Parameters["sceneTexture"].SetValue(sceneTex);
+            offsetShader.Parameters["sceneTexture"].SetValue(terrainTex);
             offsetShader.Parameters["offsetTexture"].SetValue(offsetTex);
             offsetShader.CommitChanges();
-
+            
             offsetShader.Begin();
             offsetShader.CurrentTechnique.Passes[0].Begin();
             GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, offsetVertices.Count, 0, offsetIndices.Count / 3);
             offsetShader.CurrentTechnique.Passes[0].End();
             offsetShader.End();
+            
+            GraphicsDevice.RenderState.CullMode = CullMode.None;
+            GraphicsDevice.VertexDeclaration = sunVertexDeclaration;
+
+            fullScreenTextureShader.Parameters["sceneTexture"].SetValue(terrainTex);
+            fullScreenTextureShader.CommitChanges();
+            fullScreenTextureShader.Begin();
+            fullScreenTextureShader.CurrentTechnique.Passes[0].Begin();
+            GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, FullScreenQuad, 0, 2);
+            fullScreenTextureShader.CurrentTechnique.Passes[0].End();
+            fullScreenTextureShader.End();
+
+            GraphicsDevice.SetRenderTarget(0, null);
+            //GraphicsDevice.SetRenderTarget(1, null);
+            GraphicsDevice.DepthStencilBuffer = old;
+
+            Texture2D sceneTex = sceneTarget.GetTexture();
+
+            toneMapShader.Parameters["sceneTexture"].SetValue(sceneTex);
+            toneMapShader.Begin();
+            toneMapShader.CurrentTechnique.Passes[0].Begin();
+            GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, FullScreenQuad, 0, 2);
+            toneMapShader.CurrentTechnique.Passes[0].End();
+            toneMapShader.End();
 
             spriteBatch.Begin(SpriteBlendMode.AlphaBlend, SpriteSortMode.Immediate, SaveStateMode.SaveState);
-
             spriteBatch.DrawString(font, displayText, new Vector2(5, 5), Color.Black);
             spriteBatch.End();
 
@@ -739,11 +770,13 @@ namespace Terrallax
 
         void generateFullScreenQuad()
         {
-            FullScreenQuad = new VertexPosition2D[4];
-            FullScreenQuad[0] = new VertexPosition2D(new Vector2(-1, -1));
-            FullScreenQuad[1] = new VertexPosition2D(new Vector2(-1, 1));
-            FullScreenQuad[2] = new VertexPosition2D(new Vector2(1, -1));
-            FullScreenQuad[3] = new VertexPosition2D(new Vector2(1, 1));
+            Vector2 textureOffset = new Vector2(0.5f / SCREEN_WIDTH, 0.5f / SCREEN_HEIGHT);
+
+            FullScreenQuad = new VertexPositionTexture[4];
+            FullScreenQuad[0] = new VertexPositionTexture(new Vector3(-1, -1, 0), new Vector2(0, 1) + textureOffset);
+            FullScreenQuad[1] = new VertexPositionTexture(new Vector3(-1, 1, 0), new Vector2(0, 0) + textureOffset);
+            FullScreenQuad[2] = new VertexPositionTexture(new Vector3(1, -1, 0), new Vector2(1, 1) + textureOffset);
+            FullScreenQuad[3] = new VertexPositionTexture(new Vector3(1, 1, 0), new Vector2(1, 0) + textureOffset);
         }
 
         void generateWater()
