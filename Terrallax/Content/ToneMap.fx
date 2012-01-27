@@ -36,8 +36,8 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
 float4 ToneMap(VertexShaderOutput input) : COLOR
 {
     float4 color = tex2D(textureSampler, input.TexCoord);
-	color = saturate(pow(color, 1/2.4)*1.4-0.4);
-	//color = pow(saturate(color*1.5-0.25), 1/2.2);
+	//color = saturate(pow(color, 1/2.4)*1.4-0.4);
+	color = pow(saturate(color*1.125-0.125), 1/2.2);
 	return color;
 }
 

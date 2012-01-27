@@ -332,7 +332,7 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     }
 	
     //apply ambient, diffuse, and specular lighting
-    color *= float4(0.12,0.12,0.15,1)*1.5 + diffuse*float4(1.5,1,0.7,0)*1.5 + specular*SpecularIntensity[currentMaterial]*1.5;
+    color *= float4(0.12,0.12,0.15,1)*1.5 + diffuse*float4(1.5,1,0.7,0)*1.25 + specular*SpecularIntensity[currentMaterial]*1.5;
 	color.rgb = color.rgb * 1.4;
     if(input.Info.z <= WaterLevel)
     {
