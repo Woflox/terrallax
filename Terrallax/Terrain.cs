@@ -58,18 +58,17 @@ namespace Terrallax
                                  (float)Math.Round(Game1.instance.camerapos.Z / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH), null);
             vBuffer.SetData(currentVertexData.vertices);
         }
-        int numTicks = 0;
         public void update()
         {
             Vector2 LODCellPosition = new Vector2((float)Math.Round(Game1.instance.camerapos.X / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH,
                                  (float)Math.Round(Game1.instance.camerapos.Z / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH);
-            numTicks++;
+            //numTicks++;
             if (LODCellPosition != currentVertexData.basePosition)
             {
                 if (nextVertexData.readyState == TerrainVertexData.ReadyState.Idle)
                 {
                     nextVertexData.generate(LODCellPosition, currentVertexData);
-                    numTicks = 0;
+                    //numTicks = 0;
                 }
                 else if (nextVertexData.readyState == TerrainVertexData.ReadyState.Ready)
                 {
@@ -78,7 +77,7 @@ namespace Terrallax
                     nextVertexData = tmp;
                     nextVertexData.readyState = TerrainVertexData.ReadyState.Idle;
                     vBuffer.SetData(currentVertexData.vertices);
-                    Console.WriteLine(numTicks);
+                    //Console.WriteLine(numTicks);
                 }
             }
 

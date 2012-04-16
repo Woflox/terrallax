@@ -299,7 +299,7 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
         color = lerp(MaterialColors[0], MaterialColors[1], saturate(materialMapping[1] + (values[2]-0.5)*0.2f));
 	    
         //make flat parts grass-coloured when in a grassy area
-        color = lerp(color,MaterialColors[2],materialMapping[2]*(1-min(1.5,length(normal.xy)*4))*0.5);
+        color = lerp(color,MaterialColors[2],materialMapping[2]*(1-min(1.5,length(normal.xy)*6))*0.5);
         
         color *= 1.125 - (input.Info.x*input.Info.x+input.Info.y*input.Info.y)*0.625;
 
@@ -332,7 +332,7 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     }
 	
     //apply ambient, diffuse, and specular lighting
-    color *= float4(0.12,0.12,0.15,1)*1.5 + diffuse*float4(1.5,1,0.7,0)*1.25 + specular*SpecularIntensity[currentMaterial]*1.5;
+    color *= float4(0.12,0.12,0.15,1)*1.5 + diffuse*float4(1.5,1,0.7,0) + specular*SpecularIntensity[currentMaterial]*1.5;
 	color.rgb = color.rgb * 1.4;
     if(input.Info.z <= WaterLevel)
     {
@@ -347,9 +347,55 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     return output;
 }
 
+float4 ReflectedTerrainPS(VertexShaderOutput input) : COLOR
+{
+	float4 color;
+	float4 offset = float4(0.5, 0.5, 0.5, 1);
+	PixelShaderOutputWithOffset output;
+	
+	
+    //get the material mapping based on the information passed from the vertex shader. (Info.xy represents the x and z of the normal and Info.z is the terrain height)
+    float4 materialMapping = tex2D(materialMappingSampler, (float2(length(input.Info.xy),1-(input.Info.z-WaterLevel)*0.0025)));
+    materialMapping = float4(0, //dirt 
+                             materialMapping.r,   //sand
+                             materialMapping.g,   //grass
+                             materialMapping.b);  //rock
+	
+	color = MaterialColors[0];
+	color = lerp(color, MaterialColors[1], materialMapping.g);
+	color = lerp(color, MaterialColors[3], materialMapping.b);
+	color = lerp(color, MaterialColors[2], materialMapping.r);
+	
+	float3 normal = float3(0,0,1);
+    //do lighting calculations
+    float diffuse = saturate(dot(-input.TanLightDir, normal));
+    
+    //apply ambient, diffuse, and specular lighting
+    color *= float4(0.12,0.12,0.15,1)*1.5 + diffuse*float4(1.5,1,0.7,0);
+    color.rgb = color.rgb * 1.4;
+    
+    //apply distance fog
+    color = lerp(color, input.FogColor, input.Color.g);
+    color.a = 1;
+    
+    
+    if(CameraPos.y > WaterLevel && input.Info.z <= WaterLevel)
+    {
+		discard;
+    }
+    
+    return color;
+}
+
 technique ExpTerrain
 {
+
 	pass Pass1
+	{
+		VertexShader = compile vs_3_0 TerrainVS();
+		PixelShader = compile ps_3_0 ReflectedTerrainPS();
+	}
+	pass Pass2
 	{
 		VertexShader = compile vs_3_0 TerrainVS();
 		PixelShader = compile ps_3_0 ExpTerrainPS();

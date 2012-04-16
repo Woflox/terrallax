@@ -11,17 +11,12 @@ struct VertexShaderInput
 {
     float4 Position : POSITION0;
 	float2 TexCoord : TEXCOORD0;
-    // TODO: add input channels such as texture
-    // coordinates and vertex colors here.
 };
 
 struct VertexShaderOutput
 {
     float4 Position : POSITION0;
 	float2 TexCoord : TEXCOORD0;
-    // TODO: add vertex shader outputs such as colors and texture
-    // coordinates here. These values will automatically be interpolated
-    // over the triangle, and provided as input to your pixel shader.
 };
 
 VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
@@ -36,8 +31,12 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
 float4 ToneMap(VertexShaderOutput input) : COLOR
 {
     float4 color = tex2D(textureSampler, input.TexCoord);
-	//color = saturate(pow(color, 1/2.4)*1.4-0.4);
-	color = pow(saturate(color*1.125-0.125), 1/2.2);
+
+	color = color*1.1-0.1;
+	color = pow(saturate(color), 1/2.2);
+	
+	return color;
+	
 	return color;
 }
 

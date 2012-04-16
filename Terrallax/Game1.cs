@@ -24,12 +24,17 @@ namespace Terrallax
 		const bool FULL_SCREEN = true;
         const bool V_SYNC = false;
         const bool FIXED_TIME_STEP = false;
-        public int SCREEN_WIDTH = 1280  ;
+        const bool REFLECT_WORLD = true;
+
+        public int SCREEN_WIDTH = 1280;
         public int SCREEN_HEIGHT = 800;
+
+        const int REFLECT_WIDTH = 400;
+        const int REFLECT_HEIGHT = 240;
 
         Vector4 SKY_COLOR_TOP = new Vector4(0.3f,0.6f,0.85f,1);
         Vector4 SKY_COLOR_SUNNY_SIDE = new Vector4(1.3f, 1.0f, 0.75f, 1);
-        Vector4 SKY_COLOR_FAR_SIDE = new Vector4(0.85f, 1f, 2f, 1);
+        Vector4 SKY_COLOR_FAR_SIDE = new Vector4(0.85f, 0.8f, 0.75f, 1);
         Vector4 SUN_COLOR = new Vector4(0.5f, 0.25f, 0, 1);
 
         string CURRENT_TECHNIQUE = "ExpTerrain";
@@ -52,8 +57,8 @@ namespace Terrallax
 
 		Vector3 LIGHT_DIRECTION = Vector3.Normalize(new Vector3(1,-0.375f, 0));
 
-		Matrix MATERIAL_COLORS = new Matrix(0.13f, 0.1f , 0.05f, 0, //dirt
-											0.9f, 0.75f , 0.2f, 0, //sand
+		Matrix MATERIAL_COLORS = new Matrix(0.13f, 0.0925f , 0.05f, 0, //dirt
+											1.0f, 0.65f , 0.2f, 0, //sand
 											0.2f, 0.4f , 0.0525f, 0, //grass
 											0.15f, 0.15f, 0.085f, 0);//rock
 
@@ -78,6 +83,7 @@ namespace Terrallax
 
 		//camera properties
         public Vector3 camerapos;
+        public Vector3 reflectedCameraPos;
         Vector3 up;
         float cameraPitch;
         float cameraYaw;
@@ -94,9 +100,11 @@ namespace Terrallax
 
 		Matrix world;
 		Matrix view;
+        Matrix reflectedView;
 		Matrix projection;
 
         Matrix skyView;
+        Matrix reflectedSkyView;
 
 		GraphicsDeviceManager graphics;
 		SpriteBatch spriteBatch;
@@ -135,6 +143,7 @@ namespace Terrallax
         RenderTarget2D terrainTarget;
         RenderTarget2D offsetTarget;
         RenderTarget2D sceneTarget;
+        RenderTarget2D reflectTarget;
 
         VertexPositionTexture[] sunVertices;
         VertexPositionTexture[] skyVertices;
@@ -417,6 +426,11 @@ namespace Terrallax
             waterShader.Parameters["SkyColorFarSide"].SetValue(SKY_COLOR_FAR_SIDE);
             waterShader.Parameters["SunColor"].SetValue(SUN_COLOR);
 
+            if (REFLECT_WORLD)
+            {
+                waterShader.CurrentTechnique = waterShader.Techniques[1];
+            }
+
             terrainTarget = new RenderTarget2D(GraphicsDevice,
                                          GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
@@ -437,6 +451,11 @@ namespace Terrallax
                                         GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
                                          DepthFormat.Depth24Stencil8, MultiSampleType.FourSamples, GraphicsDevice.PresentationParameters.MultiSampleQuality);
+            reflectTarget = new RenderTarget2D(GraphicsDevice,
+                                        REFLECT_WIDTH,
+                                        REFLECT_HEIGHT,
+                                        0,
+                                        SurfaceFormat.Color);
 
             terrain = new Terrain();
 		}
@@ -514,16 +533,67 @@ namespace Terrallax
 		/// <param name="gameTime">Provides a snapshot of timing values.</param>
 		protected override void Draw(GameTime gameTime)
 		{
+            if (REFLECT_WORLD)
+            {
+                //TODO: refactor duplicated code
+                GraphicsDevice.SetRenderTarget(0, reflectTarget);
+                GraphicsDevice.SetRenderTarget(1, null);
+
+
+                GraphicsDevice.RenderState.AlphaBlendEnable = false;
+                GraphicsDevice.RenderState.CullMode = CullMode.None;
+                GraphicsDevice.RenderState.DepthBufferEnable = false;
+                GraphicsDevice.RenderState.AlphaTestEnable = false;
+
+                GraphicsDevice.Clear(Color.White);
+                skyShader.Parameters["World"].SetValue(Matrix.Identity);
+                skyShader.Parameters["View"].SetValue(reflectedSkyView);
+                skyShader.Parameters["Projection"].SetValue(projection);
+
+                GraphicsDevice.VertexDeclaration = sunVertexDeclaration;
+
+                skyShader.CommitChanges();
+                skyShader.Begin();
+                skyShader.CurrentTechnique.Passes[0].Begin();
+                GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, skyVertices, 0, 10);
+                skyShader.CurrentTechnique.Passes[0].End();
+                skyShader.End();
+
+                GraphicsDevice.RenderState.AlphaBlendEnable = false;
+                GraphicsDevice.RenderState.AlphaTestEnable = false;
+                GraphicsDevice.VertexDeclaration = terrainVertexDeclaration;
+                GraphicsDevice.RenderState.DepthBufferEnable = true;
+                GraphicsDevice.Indices = terrain.iBuffer;
+                GraphicsDevice.Vertices[0].SetSource(terrain.vBuffer, 0, VertexPosNormalTanBinormal.SizeInBytes);
+                GraphicsDevice.RenderState.CullMode = CullMode.CullClockwiseFace;
+                GraphicsDevice.SamplerStates[1].MaxAnisotropy = 4;
+                //GraphicsDevice.RenderState.FillMode = FillMode.WireFrame;
+
+                // Set the WVP matrices in the shader
+                terrainShader.Parameters["World"].SetValue(terrain.world);
+                terrainShader.Parameters["View"].SetValue(reflectedView);
+                terrainShader.Parameters["Projection"].SetValue(projection);
+                terrainShader.Parameters["CameraPos"].SetValue(camerapos);
+                terrainShader.CommitChanges();
+
+                terrainShader.Begin();
+                terrainShader.CurrentTechnique.Passes[0].Begin();
+                terrain.drawPrimitives();
+                terrainShader.CurrentTechnique.Passes[0].End();
+                terrainShader.End();
+            }
+
             GraphicsDevice.SetRenderTarget(0, terrainTarget);
             GraphicsDevice.SetRenderTarget(1, offsetTarget);
+            GraphicsDevice.Clear(ClearOptions.DepthBuffer, Color.White, 1.0f, 0);
             DepthStencilBuffer old = GraphicsDevice.DepthStencilBuffer;
             GraphicsDevice.DepthStencilBuffer = depthBuffer;
 
             GraphicsDevice.RenderState.AlphaBlendEnable = false;
             GraphicsDevice.RenderState.CullMode = CullMode.None;
-            GraphicsDevice.RenderState.DepthBufferEnable = false;
             GraphicsDevice.RenderState.AlphaTestEnable = false;
             GraphicsDevice.Clear(Color.White);
+            GraphicsDevice.RenderState.DepthBufferEnable = false;
             GraphicsDevice.VertexDeclaration = sunVertexDeclaration;
             clearShader.Begin();
             clearShader.CurrentTechnique.Passes[0].Begin();
@@ -562,9 +632,9 @@ namespace Terrallax
 			terrainShader.CommitChanges();
             
 			terrainShader.Begin();
-			terrainShader.CurrentTechnique.Passes[0].Begin();
+			terrainShader.CurrentTechnique.Passes[1].Begin();
             terrain.drawPrimitives();
-			terrainShader.CurrentTechnique.Passes[0].End();
+			terrainShader.CurrentTechnique.Passes[1].End();
 			terrainShader.End();
 
             GraphicsDevice.VertexDeclaration = skyVertexDeclaration;
@@ -573,8 +643,15 @@ namespace Terrallax
             waterShader.Parameters["World"].SetValue(world);
             waterShader.Parameters["View"].SetValue(view);
             waterShader.Parameters["Projection"].SetValue(projection);
+            waterShader.Parameters["ViewAngleProjection"].SetValue(skyView * projection);
             waterShader.Parameters["t"].SetValue(totalT);
             waterShader.Parameters["CameraPos"].SetValue(camerapos);
+            
+            if (REFLECT_WORLD)
+            {
+                waterShader.Parameters["ReflectTexture"].SetValue(reflectTarget.GetTexture());
+            }
+
             waterShader.CommitChanges();
 
             GraphicsDevice.RenderState.AlphaBlendEnable = true;
@@ -665,9 +742,11 @@ namespace Terrallax
 			this.up = Vector3.Up;
 
 			this.view = Matrix.Identity;
+            this.reflectedView = Matrix.Identity;
 			this.world = Matrix.Identity;
             this.skyView = Matrix.Identity;
-
+            this.reflectedSkyView = Matrix.Identity;
+            
 			float anglerange = VIEWING_ANGLE;
 			float aspect = (float)GraphicsDevice.Viewport.Width /
 					(float)GraphicsDevice.Viewport.Height;
@@ -735,8 +814,13 @@ namespace Terrallax
 
                 camerapos += deltaPos * deltaT * speed;
 
+                reflectedCameraPos = new Vector3(camerapos.X, WATER_LEVEL - (camerapos.Y - WATER_LEVEL), camerapos.Z);
+                Vector3 reflectedLookAtPos = new Vector3(lookatPos.X, -lookatPos.Y, lookatPos.Z);
+
                 view = Matrix.CreateLookAt(camerapos, camerapos + lookatPos, up);
+                reflectedView = Matrix.CreateLookAt(reflectedCameraPos, reflectedCameraPos + reflectedLookAtPos, up);
                 skyView = Matrix.CreateLookAt(Vector3.Zero, lookatPos, up);
+                reflectedSkyView = Matrix.CreateLookAt(Vector3.Zero, reflectedLookAtPos, up);
         }
 
         void generateOffsetVertices()
