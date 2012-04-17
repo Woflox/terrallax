@@ -769,7 +769,7 @@ namespace Terrallax
             
                 MouseState mouseState = Mouse.GetState();
 
-                if (IsActive && (!EDITOR_MODE || Keyboard.GetState().GetPressedKeys().Length > 0))
+                if (((System.Windows.Forms.Form)System.Windows.Forms.Control.FromHandle(Window.Handle)).Focused)
                 {
                     Mouse.SetPosition(GraphicsDevice.PresentationParameters.BackBufferWidth / 2,
                                       GraphicsDevice.PresentationParameters.BackBufferHeight / 2);
