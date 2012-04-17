@@ -21,13 +21,13 @@ namespace Terrallax
         public const int NUM_CELLS = 128;
         public const int NUM_LODS = 7;
 
-
         public List<VertexPosition2D> LODGrid;
         public List<int> LODIndices;
 
         public TerrainVertexData currentVertexData;
         public TerrainVertexData nextVertexData;
 
+        public AreaParameters parameters = AreaParameters.DefaultParameters();
 
         public VertexBuffer vBuffer;
         public IndexBuffer iBuffer;
@@ -55,19 +55,28 @@ namespace Terrallax
             nextVertexData = new TerrainVertexData(LODGrid, LODIndices, LODPoints);
 
             currentVertexData.generate(new Vector2((float)Math.Round(Game1.instance.camerapos.X / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH,
-                                 (float)Math.Round(Game1.instance.camerapos.Z / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH), null);
+                                 (float)Math.Round(Game1.instance.camerapos.Z / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH), null, parameters, false);
             vBuffer.SetData(currentVertexData.vertices);
         }
         public void update()
         {
             Vector2 LODCellPosition = new Vector2((float)Math.Round(Game1.instance.camerapos.X / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH,
                                  (float)Math.Round(Game1.instance.camerapos.Z / Terrain.LOD_CELL_WIDTH) * Terrain.LOD_CELL_WIDTH);
+
+            bool changedParameters = currentVertexData.parameters != parameters;
             //numTicks++;
-            if (LODCellPosition != currentVertexData.basePosition)
+            if (LODCellPosition != currentVertexData.basePosition || changedParameters)
             {
                 if (nextVertexData.readyState == TerrainVertexData.ReadyState.Idle)
                 {
-                    nextVertexData.generate(LODCellPosition, currentVertexData);
+                    if (!changedParameters)
+                    {
+                        nextVertexData.generate(LODCellPosition, currentVertexData, parameters, true);
+                    }
+                    else
+                    {
+                        nextVertexData.generate(LODCellPosition, null, parameters, true);
+                    }
                     //numTicks = 0;
                 }
                 else if (nextVertexData.readyState == TerrainVertexData.ReadyState.Ready)

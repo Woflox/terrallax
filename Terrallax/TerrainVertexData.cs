@@ -28,6 +28,7 @@ namespace Terrallax
 
         public ReadyState readyState;
         public Vector2 basePosition;
+        public AreaParameters parameters;
 
         Dictionary<Vector2, int> LODPoints;
         TerrainVertexData cachedData;
@@ -44,11 +45,12 @@ namespace Terrallax
             readyState = ReadyState.Idle;
         }
 
-        public void generate(Vector2 basePosition, TerrainVertexData cachedData)
+        public void generate(Vector2 basePosition, TerrainVertexData cachedData, AreaParameters parameters, bool async)
         {
             this.basePosition = basePosition;
             this.cachedData = cachedData;
-            if (cachedData == null)
+            this.parameters = parameters;
+            if (!async)
             {
                 generate();
             }
@@ -84,17 +86,17 @@ namespace Terrallax
                 }
                 else
                 {
-                    float vScale = 400;
-                    float hScale = 2300;
-                    float offset = 300;
+                    float vScale = parameters.vScale;
+                    float hScale = parameters.hScale;
+                    float offset = parameters.vOffset;
 
                     Vector2 p2D = new Vector2(vertices[i].Position.X + basePosition.X, vertices[i].Position.Z + basePosition.Y);
                     // calc the height displacement using a multifractal
-                    vertices[i].Position.Y = mf(p2D / hScale, 8) * vScale + offset;
+                    vertices[i].Position.Y = mf(p2D / hScale, parameters) * vScale + offset;
 
                     //calculate the binormal and tangent by getting the height right next to the point for x and z
-                    vertices[i].Binormal = Vector3.Normalize(new Vector3(0.1f, (mf((p2D + new Vector2(0.1f, 0)) / hScale, 8) * vScale + offset) - vertices[i].Position.Y, 0));
-                    vertices[i].Tangent = Vector3.Normalize(new Vector3(0, (mf((p2D + new Vector2(0, 0.1f)) / hScale, 8) * vScale + offset) - vertices[i].Position.Y, 0.1f));
+                    vertices[i].Binormal = Vector3.Normalize(new Vector3(0.1f, (mf((p2D + new Vector2(0.1f, 0)) / hScale, parameters) * vScale + offset) - vertices[i].Position.Y, 0));
+                    vertices[i].Tangent = Vector3.Normalize(new Vector3(0, (mf((p2D + new Vector2(0, 0.1f)) / hScale, parameters) * vScale + offset) - vertices[i].Position.Y, 0.1f));
                     vertices[i].Normal = Vector3.Normalize(Vector3.Cross(vertices[i].Tangent, vertices[i].Binormal));
                     numGenerated++;
                 }
@@ -108,9 +110,9 @@ namespace Terrallax
             Game1.instance.GraphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, vertices.Length, 0, indices.Count / 3);
         }
 
-        float mf(Vector2 p, int octaves)
+        float mf(Vector2 p, AreaParameters parameters)
         {
-            return mf(p, octaves, 0.75f, 2.2f, 1.5f, 0.9f);
+            return mf(p, parameters.octaves, parameters.spectral_exp, parameters.lacunarity, parameters.offset, parameters.threshold);
         }
 
         float mf(Vector2 p, int octaves, float spectral_exp, float lacunarity, float offset, float threshold)

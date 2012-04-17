@@ -21,13 +21,15 @@ namespace Terrallax
 	{
         public static Game1 instance;
 
-		const bool FULL_SCREEN = true;
+		const bool FULL_SCREEN = false;
+        const bool USE_SCREEN_RESOLUTION = true;
         const bool V_SYNC = false;
         const bool FIXED_TIME_STEP = false;
         const bool REFLECT_WORLD = true;
+        const bool EDITOR_MODE = true;
 
-        public int SCREEN_WIDTH = 1280;
-        public int SCREEN_HEIGHT = 800;
+        public int SCREEN_WIDTH = 1024;
+        public int SCREEN_HEIGHT = 768;
 
         const int REFLECT_WIDTH = 400;
         const int REFLECT_HEIGHT = 240;
@@ -79,7 +81,7 @@ namespace Terrallax
 		int fpsIndex = 0;
 		float[] fps = new float[16];
 
-        Terrain terrain;
+        public Terrain terrain;
 
 		//camera properties
         public Vector3 camerapos;
@@ -329,9 +331,12 @@ namespace Terrallax
 		/// </summary>
 		protected override void Initialize()
 		{
-            DisplayMode displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
-            SCREEN_WIDTH = displayMode.Width;
-            SCREEN_HEIGHT = displayMode.Height;
+            if (USE_SCREEN_RESOLUTION)
+            {
+                DisplayMode displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
+                SCREEN_WIDTH = displayMode.Width;
+                SCREEN_HEIGHT = displayMode.Height;
+            }
 			this.graphics.PreferredBackBufferWidth = SCREEN_WIDTH;
 			this.graphics.PreferredBackBufferHeight = SCREEN_HEIGHT;
 			this.graphics.IsFullScreen = FULL_SCREEN;
@@ -346,6 +351,12 @@ namespace Terrallax
 			r = new Random();
 
 			base.Initialize();
+
+            if (EDITOR_MODE)
+            {
+                Editor editor = new Editor();
+                editor.Show();
+            }
 		}
 
 		/// <summary>
@@ -757,7 +768,8 @@ namespace Terrallax
 		{
             
                 MouseState mouseState = Mouse.GetState();
-                if (IsActive)
+
+                if (IsActive && (!EDITOR_MODE || Keyboard.GetState().GetPressedKeys().Length > 0))
                 {
                     Mouse.SetPosition(GraphicsDevice.PresentationParameters.BackBufferWidth / 2,
                                       GraphicsDevice.PresentationParameters.BackBufferHeight / 2);
