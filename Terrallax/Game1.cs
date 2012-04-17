@@ -31,8 +31,8 @@ namespace Terrallax
         public int SCREEN_WIDTH = 1024;
         public int SCREEN_HEIGHT = 768;
 
-        const int REFLECT_WIDTH = 400;
-        const int REFLECT_HEIGHT = 240;
+        const int REFLECT_WIDTH = 600;
+        const int REFLECT_HEIGHT = 360;
 
         Vector4 SKY_COLOR_TOP = new Vector4(0.3f,0.6f,0.85f,1);
         Vector4 SKY_COLOR_SUNNY_SIDE = new Vector4(1.3f, 1.0f, 0.75f, 1);

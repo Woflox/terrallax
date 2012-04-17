@@ -210,7 +210,9 @@ PixelShaderOutput ReflectWorldPS(VertexShaderOutput input)
 	
 	reflectCoord /= reflectCoord.w;
 	
-	reflectCoord.y -= 0.05;
+	float waterDistance = length(CameraPos - input.TexCoord);
+		
+	reflectCoord.y -= min(0.05, 0.05/(waterDistance*0.0025));
 	
 	color = tex2D(reflectSampler, (reflectCoord.xy+1)/2);
 	
@@ -220,7 +222,6 @@ PixelShaderOutput ReflectWorldPS(VertexShaderOutput input)
 	if (underwater < 0)
 	{
 		//waterfog
-		float waterDistance = length(CameraPos - input.TexCoord);
 		color.rgba = lerp ( color, waterColor, 1-pow(2.71828183, -(0.0175*waterDistance)));
 	}
 	color.a = 1 - color.a;
