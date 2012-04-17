@@ -50,6 +50,7 @@ namespace Terrallax
             this.basePosition = basePosition;
             this.cachedData = cachedData;
             this.parameters = parameters;
+            readyState = ReadyState.Loading;
             if (!async)
             {
                 generate();
@@ -67,7 +68,6 @@ namespace Terrallax
             {
                 relativePosition = basePosition - cachedData.basePosition;
             }
-            readyState = ReadyState.Loading;
             int numCached = 0;
             int numGenerated = 0;
             for (int i = 0; i < vertices.Length; i++)
