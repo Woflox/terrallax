@@ -378,11 +378,18 @@ float4 ReflectedTerrainPS(VertexShaderOutput input) : COLOR
     color = lerp(color, input.FogColor, input.Color.g);
     color.a = 1;
     
-    
-    if(CameraPos.y > WaterLevel && input.Info.z <= WaterLevel)
+	if(CameraPos.y > WaterLevel)
     {
-		discard;
+		if(input.Info.z <= WaterLevel)
+		{
+			discard;
+		}
     }
+	else
+	{
+		//apply water fog
+		color = lerp(color, float4(0.0,0.1,0.0,1), input.Color.r);
+	}
     
     return color;
 }

@@ -44,6 +44,10 @@
             this.label6 = new System.Windows.Forms.Label();
             this.label7 = new System.Windows.Forms.Label();
             this.label8 = new System.Windows.Forms.Label();
+            this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
+            this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
+            this.save = new System.Windows.Forms.Button();
+            this.load = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.hScale)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.vScale)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.vOffset)).BeginInit();
@@ -57,7 +61,7 @@
             // hScale
             // 
             this.hScale.Location = new System.Drawing.Point(57, 12);
-            this.hScale.Maximum = 4600;
+            this.hScale.Maximum = 8000;
             this.hScale.Name = "hScale";
             this.hScale.Size = new System.Drawing.Size(263, 45);
             this.hScale.TabIndex = 0;
@@ -86,7 +90,7 @@
             // vScale
             // 
             this.vScale.Location = new System.Drawing.Point(57, 46);
-            this.vScale.Maximum = 800;
+            this.vScale.Maximum = 1000;
             this.vScale.Name = "vScale";
             this.vScale.Size = new System.Drawing.Size(263, 45);
             this.vScale.TabIndex = 3;
@@ -200,11 +204,44 @@
             this.label8.TabIndex = 15;
             this.label8.Text = "offset";
             // 
+            // openFileDialog1
+            // 
+            this.openFileDialog1.DefaultExt = "xml";
+            this.openFileDialog1.FileName = "openFileDialog1";
+            this.openFileDialog1.Filter = "XML files|*.xml";
+            // 
+            // saveFileDialog1
+            // 
+            this.saveFileDialog1.DefaultExt = "xml";
+            this.saveFileDialog1.Filter = "XML files|*.xml";
+            // 
+            // save
+            // 
+            this.save.Location = new System.Drawing.Point(40, 286);
+            this.save.Name = "save";
+            this.save.Size = new System.Drawing.Size(112, 39);
+            this.save.TabIndex = 16;
+            this.save.Text = "Save";
+            this.save.UseVisualStyleBackColor = true;
+            this.save.Click += new System.EventHandler(this.save_Click);
+            // 
+            // load
+            // 
+            this.load.Location = new System.Drawing.Point(183, 286);
+            this.load.Name = "load";
+            this.load.Size = new System.Drawing.Size(112, 39);
+            this.load.TabIndex = 17;
+            this.load.Text = "Load";
+            this.load.UseVisualStyleBackColor = true;
+            this.load.Click += new System.EventHandler(this.load_Click);
+            // 
             // Editor
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(332, 284);
+            this.ClientSize = new System.Drawing.Size(332, 351);
+            this.Controls.Add(this.load);
+            this.Controls.Add(this.save);
             this.Controls.Add(this.label8);
             this.Controls.Add(this.label7);
             this.Controls.Add(this.label6);
@@ -255,5 +292,9 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.Label label8;
+        private System.Windows.Forms.OpenFileDialog openFileDialog1;
+        private System.Windows.Forms.SaveFileDialog saveFileDialog1;
+        private System.Windows.Forms.Button save;
+        private System.Windows.Forms.Button load;
     }
 }

@@ -31,6 +31,8 @@ namespace Terrallax
         public int SCREEN_WIDTH = 1024;
         public int SCREEN_HEIGHT = 768;
 
+        const bool HI_QUALITY_CC = false;
+
         const int REFLECT_WIDTH = 600;
         const int REFLECT_HEIGHT = 360;
 
@@ -442,10 +444,12 @@ namespace Terrallax
                 waterShader.CurrentTechnique = waterShader.Techniques[1];
             }
 
+            SurfaceFormat colorSurface = HI_QUALITY_CC ? SurfaceFormat.Rgba64 : SurfaceFormat.Color;
+
             terrainTarget = new RenderTarget2D(GraphicsDevice,
                                          GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
-                                         1, SurfaceFormat.Color);
+                                         1, colorSurface);
             offsetTarget = new RenderTarget2D(GraphicsDevice,
                                          GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
@@ -453,7 +457,7 @@ namespace Terrallax
             sceneTarget = new RenderTarget2D(GraphicsDevice,
                                          GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
-                                         1, SurfaceFormat.Color, MultiSampleType.FourSamples, GraphicsDevice.PresentationParameters.MultiSampleQuality );
+                                         1, colorSurface, MultiSampleType.FourSamples, GraphicsDevice.PresentationParameters.MultiSampleQuality);
             depthBuffer = new DepthStencilBuffer(GraphicsDevice,
                                         GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,

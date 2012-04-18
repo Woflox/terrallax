@@ -16,6 +16,11 @@ namespace Terrallax
         public Editor()
         {
             InitializeComponent();
+            initValues();
+        }
+
+        public void initValues()
+        {
             hScale.Value = (int)parameters.hScale;
             vScale.Value = (int)parameters.vScale;
             vOffset.Value = (int)parameters.vOffset;
@@ -92,6 +97,26 @@ namespace Terrallax
         private void notify()
         {
             Game1.instance.terrain.parameters = parameters;
+        }
+
+        private void save_Click(object sender, EventArgs e)
+        {
+            DialogResult result = saveFileDialog1.ShowDialog();
+            if (result == DialogResult.OK && saveFileDialog1.FileName != "")
+            {
+                parameters.Save(saveFileDialog1.FileName);
+            }
+        }
+
+        private void load_Click(object sender, EventArgs e)
+        {
+            DialogResult result = openFileDialog1.ShowDialog();
+            if (result == DialogResult.OK && openFileDialog1.FileName != "")
+            {
+                parameters = AreaParameters.Load(openFileDialog1.FileName);
+                initValues();
+                notify();
+            }
         }
     }
 }
