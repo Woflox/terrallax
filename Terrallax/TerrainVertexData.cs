@@ -23,6 +23,19 @@ namespace Terrallax
             Ready
         }
 
+        public enum ThreadState
+        {
+            Working,
+            Done
+        }
+
+        public class GenerationCallParameters
+        {
+            public bool async;
+            public int threadIndex;
+            public TerrainVertexData cachedData;
+        }
+
         public VertexPosNormalTanBinormal[] vertices;
         public List<int> indices;
 
@@ -30,8 +43,11 @@ namespace Terrallax
         public Vector2 basePosition;
         public AreaParameters parameters;
 
+        public static readonly int NUM_THREADS = 1;
+
+        ThreadState[] threadStates;
+
         Dictionary<Vector2, int> LODPoints;
-        TerrainVertexData cachedData;
 
         public TerrainVertexData(List<VertexPosition2D> LODGrid, List<int> LODIndices, Dictionary<Vector2, int> LODPoints)
         {
@@ -43,26 +59,49 @@ namespace Terrallax
                 vertices[i] = new VertexPosNormalTanBinormal(new Vector3(LODGrid[i].Position.X, 0, LODGrid[i].Position.Y), Vector3.Zero, Vector3.Zero, Vector3.Zero);
             }
             readyState = ReadyState.Idle;
+            threadStates = new ThreadState[NUM_THREADS];
         }
 
         public void generate(Vector2 basePosition, TerrainVertexData cachedData, AreaParameters parameters, bool async)
         {
             this.basePosition = basePosition;
-            this.cachedData = cachedData;
             this.parameters = parameters;
             readyState = ReadyState.Loading;
+            for (int i = 0; i < threadStates.Length; i++)
+            {
+                threadStates[i] = ThreadState.Working;
+            }
+
             if (!async)
             {
-                generate();
+                GenerationCallParameters genParams = new GenerationCallParameters();
+                genParams.cachedData = cachedData;
+                genParams.async = async;
+                genParams.threadIndex = 0;
+                generate(genParams);
             }
             else
             {
-                new Thread(generate).Start();
+                for (int i = 0; i < NUM_THREADS; i++)
+                {
+                    GenerationCallParameters genParams = new GenerationCallParameters();
+                    genParams.cachedData = cachedData;
+                    genParams.async = async;
+                    genParams.threadIndex = i;
+                    Thread thread = new Thread(generate);
+                    thread.Priority = ThreadPriority.BelowNormal;
+                    thread.Start(genParams);
+                }
             }
         }
 
-        private void generate()
+        private void generate(object data)
         {
+            GenerationCallParameters genParams = data as GenerationCallParameters;
+            TerrainVertexData cachedData = genParams.cachedData;
+            bool async = genParams.async;
+            int threadIndex = genParams.threadIndex;
+
             Vector2 relativePosition = Vector2.Zero;
             if (cachedData != null)
             {
@@ -70,10 +109,24 @@ namespace Terrallax
             }
             int numCached = 0;
             int numGenerated = 0;
-            for (int i = 0; i < vertices.Length; i++)
+
+            int startIndex = 0;
+            int endIndex = vertices.Length - 1;
+            if (async && NUM_THREADS > 1)
+            {
+                int verticesPerThread = vertices.Length / NUM_THREADS;
+                startIndex = threadIndex * verticesPerThread;
+                if (threadIndex != NUM_THREADS - 1)
+                {
+                    endIndex = startIndex + verticesPerThread - 1;
+                }
+            }
+
+            for (int i = startIndex; i <= endIndex; i++)
             {
                 Vector2 p2DRel = new Vector2(vertices[i].Position.X + relativePosition.X,
-                                                                            vertices[i].Position.Z + relativePosition.Y);
+                                                                      
+                    vertices[i].Position.Z + relativePosition.Y);
                 int cachedIndex;
 
                 if (cachedData != null && LODPoints.TryGetValue(p2DRel, out cachedIndex))
@@ -101,8 +154,29 @@ namespace Terrallax
                     numGenerated++;
                 }
             }
-            Console.WriteLine("NumCached: " + numCached + "NumGenerated: " + numGenerated);
-            readyState = ReadyState.Ready;
+
+            if (async)
+            {
+                threadStates[threadIndex] = ThreadState.Done;
+
+                bool allThreadsDone = true;
+
+                foreach (ThreadState state in threadStates)
+                {
+                    if (state == ThreadState.Working)
+                    {
+                        allThreadsDone = false;
+                    }
+                }
+                if (allThreadsDone)
+                {
+                    readyState = ReadyState.Ready;
+                }
+            }
+            else
+            {
+                readyState = ReadyState.Ready;
+            }
         }
 
         public void drawPrimitives()

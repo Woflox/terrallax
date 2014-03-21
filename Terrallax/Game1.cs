@@ -28,17 +28,17 @@ namespace Terrallax
         const bool REFLECT_WORLD = true;
         const bool EDITOR_MODE = true;
 
-        public int SCREEN_WIDTH = 1024;
-        public int SCREEN_HEIGHT = 768;
+        public int SCREEN_WIDTH = 1280;
+        public int SCREEN_HEIGHT = 720;
 
         const bool HI_QUALITY_CC = false;
 
         const int REFLECT_WIDTH = 600;
         const int REFLECT_HEIGHT = 360;
 
-        Vector4 SKY_COLOR_TOP = new Vector4(0.3f,0.6f,0.85f,1);
-        Vector4 SKY_COLOR_SUNNY_SIDE = new Vector4(1.3f, 1.0f, 0.75f, 1);
-        Vector4 SKY_COLOR_FAR_SIDE = new Vector4(0.85f, 0.8f, 0.75f, 1);
+        Vector4 SKY_COLOR_TOP = new Vector4(0.3f,0.4f,0.5f,1)*1.25f;
+        Vector4 SKY_COLOR_SUNNY_SIDE = new Vector4(0.75f, 0.6f, 0.4f, 1);
+        Vector4 SKY_COLOR_FAR_SIDE = new Vector4(0.5f, 0.45f, 0.45f, 1) * 1.25f;
         Vector4 SUN_COLOR = new Vector4(0.5f, 0.25f, 0, 1);
 
         string CURRENT_TECHNIQUE = "ExpTerrain";
@@ -64,7 +64,7 @@ namespace Terrallax
 		Matrix MATERIAL_COLORS = new Matrix(0.13f, 0.0925f , 0.05f, 0, //dirt
 											1.0f, 0.65f , 0.2f, 0, //sand
 											0.2f, 0.4f , 0.0525f, 0, //grass
-											0.15f, 0.15f, 0.085f, 0);//rock
+											0.15f, 0.15f, 0.075f, 0);//rock
 
 		Matrix MATERIAL_FUNCTIONS = new Matrix(0.4f , 0.2f,  0.06f, 1, //dirt
 											   0.5f , 0.1f, 0.025f, 0.5f, //sand
@@ -79,6 +79,12 @@ namespace Terrallax
 		Vector4 SPECULAR_INTENSITY = new Vector4(0.15f, 0.2f, 0.2f, 1f);
 
 		Vector4 SPECULAR_POWER = new Vector4(20, 40, 10, 60);
+
+        Vector4 AMBIENT_COLOR =  new Vector4(0.3f,0.3f,0.5f,1);
+
+        Vector4 DIFFUSE_COLOR = new Vector4(0.5f, 0.4f, 0.4f, 0);
+
+        float OFFSET = 0.05f;
 
 		int fpsIndex = 0;
 		float[] fps = new float[16];
@@ -403,6 +409,9 @@ namespace Terrallax
 			terrainShader.Parameters["PerlinNoiseTexture"].SetValue(perlinNoiseTexture);
 			terrainShader.Parameters["UniformNoiseTexture"].SetValue(uniformNoiseTexture);
 
+            terrainShader.Parameters["AmbientColor"].SetValue(AMBIENT_COLOR);
+            terrainShader.Parameters["DiffuseColor"].SetValue(DIFFUSE_COLOR);
+
 			terrainShader.Parameters["MaterialMappingTexture"].SetValue(materialMappingTexture);
 			terrainShader.Parameters["MaterialColors"].SetValue(MATERIAL_COLORS);
 			terrainShader.Parameters["MaterialFunctions"].SetValue(MATERIAL_FUNCTIONS);
@@ -439,6 +448,8 @@ namespace Terrallax
             waterShader.Parameters["SkyColorFarSide"].SetValue(SKY_COLOR_FAR_SIDE);
             waterShader.Parameters["SunColor"].SetValue(SUN_COLOR);
 
+            toneMapShader.Parameters["offset"].SetValue(OFFSET);
+
             if (REFLECT_WORLD)
             {
                 waterShader.CurrentTechnique = waterShader.Techniques[1];
@@ -457,7 +468,7 @@ namespace Terrallax
             sceneTarget = new RenderTarget2D(GraphicsDevice,
                                          GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
-                                         1, colorSurface, MultiSampleType.FourSamples, GraphicsDevice.PresentationParameters.MultiSampleQuality);
+                                         4, colorSurface, MultiSampleType.FourSamples, GraphicsDevice.PresentationParameters.MultiSampleQuality);
             depthBuffer = new DepthStencilBuffer(GraphicsDevice,
                                         GraphicsDevice.PresentationParameters.BackBufferWidth,
                                          GraphicsDevice.PresentationParameters.BackBufferHeight,
@@ -729,10 +740,11 @@ namespace Terrallax
             fullScreenTextureShader.End();
 
             GraphicsDevice.SetRenderTarget(0, null);
+            Texture2D sceneTex = sceneTarget.GetTexture();
+
+         //   sceneTex.GenerateMipMaps(TextureFilter.GaussianQuad);
             //GraphicsDevice.SetRenderTarget(1, null);
             GraphicsDevice.DepthStencilBuffer = old;
-
-            Texture2D sceneTex = sceneTarget.GetTexture();
 
             toneMapShader.Parameters["sceneTexture"].SetValue(sceneTex);
             toneMapShader.Begin();

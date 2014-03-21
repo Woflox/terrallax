@@ -1,10 +1,13 @@
 uniform extern texture sceneTexture;
 
+float offset;
+
 sampler textureSampler = sampler_state
 {
 	Texture = <sceneTexture>;	
 	minfilter = POINT;
 	magfilter = POINT;
+	mipfilter = LINEAR;
 };
 
 struct VertexShaderInput
@@ -32,10 +35,12 @@ float4 ToneMap(VertexShaderOutput input) : COLOR
 {
     float4 color = tex2D(textureSampler, input.TexCoord);
 
-	color = color*1.1-0.1;
+	color = color*(1+offset)-offset;
+
+	color = (sin((color-0.5)*3.14159)+1)/2;
+
 	color = pow(saturate(color), 1/2.2);
 	
-	return color;
 	
 	return color;
 }

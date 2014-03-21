@@ -20,6 +20,7 @@ namespace Terrallax
         public const float LOD_CELL_WIDTH = 100;
         public const int NUM_CELLS = 128;
         public const int NUM_LODS = 7;
+        public static readonly float DETAIL_CELL_WIDTH = CELL_WIDTH / (float)Math.Pow(2, NUM_LODS - 1);
 
         public List<VertexPosition2D> LODGrid;
         public List<int> LODIndices;

@@ -100,6 +100,7 @@
             // 
             this.vOffset.Location = new System.Drawing.Point(57, 76);
             this.vOffset.Maximum = 600;
+            this.vOffset.Minimum = -300;
             this.vOffset.Name = "vOffset";
             this.vOffset.Size = new System.Drawing.Size(263, 45);
             this.vOffset.TabIndex = 4;

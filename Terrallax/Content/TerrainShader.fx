@@ -29,6 +29,9 @@ texture PerlinNoiseTexture;
 texture UniformNoiseTexture;
 texture MaterialMappingTexture;
 
+float4 ambientColor;
+float4 diffuseColor;
+
 //samplers
 sampler perlinSampler = sampler_state 
 {
@@ -37,7 +40,7 @@ sampler perlinSampler = sampler_state
     AddressV  = Wrap;
 	MAGFILTER = LINEAR;
     MINFILTER = ANISOTROPIC;
-    MIPFILTER = LINEAR;   
+    MIPFILTER = NONE;   
 };
 
 sampler uniformSampler = sampler_state
@@ -332,7 +335,7 @@ PixelShaderOutputWithOffset ExpTerrainPS(VertexShaderOutput input)
     }
 	
     //apply ambient, diffuse, and specular lighting
-    color *= float4(0.12,0.12,0.15,1)*1.5 + diffuse*float4(1.5,1,0.7,0) + specular*SpecularIntensity[currentMaterial]*1.5;
+    color *= AmbientColor + diffuse*DiffuseColor + specular*SpecularIntensity[currentMaterial]*1.5;
 	color.rgb = color.rgb * 1.4;
     if(input.Info.z <= WaterLevel)
     {
@@ -371,7 +374,7 @@ float4 ReflectedTerrainPS(VertexShaderOutput input) : COLOR
     float diffuse = saturate(dot(-input.TanLightDir, normal));
     
     //apply ambient, diffuse, and specular lighting
-    color *= float4(0.12,0.12,0.15,1)*1.5 + diffuse*float4(1.5,1,0.7,0);
+    color *= AmbientColor + diffuse*DiffuseColor;
     color.rgb = color.rgb * 1.4;
     
     //apply distance fog
